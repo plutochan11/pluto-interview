@@ -1,0 +1,43 @@
+spring:
+    application:
+        name: pluto-interview
+    profiles:
+        active: dev
+    datasource:
+        url: ${datasource.url}
+    jpa:
+        hibernate:
+            ddl-auto: update
+#        show-sql: true
+    redis:
+        host: ${redis.host:localhost}
+        port: ${redis.port:6379}
+    mvc:
+        concurrency:
+            response-handling:
+                enabled: true
+
+thread-pool:
+    core-pool-size: 8
+    max-pool-size: 16
+    queue-capacity: 100
+    keep-alive-seconds: 60
+
+jwt:
+    secret: ${jwt.secret}
+    ttl: 259200 # 3 days in seconds
+    issuer: "Pluto Interview"
+    
+langchain4j:
+    community:
+        dashscope:
+            chat-model:
+                api-key: ${dashscope.api-key}
+                model-name: qwen-max
+            streaming-chat-model:
+                api-key: ${dashscope.api-key}
+                model-name: qwen-max
+            embedding-model:
+                api-key: ${dashscope.api-key}
+                model-name: text-embedding-v4
+            
