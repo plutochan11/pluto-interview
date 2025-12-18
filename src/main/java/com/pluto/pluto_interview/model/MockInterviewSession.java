@@ -55,7 +55,7 @@ public class MockInterviewSession {
 		CANCELLED
 	}
 
-	public String getStatus() {
+	public String getStatusAsString() {
 		return status.toString();
 	}
 

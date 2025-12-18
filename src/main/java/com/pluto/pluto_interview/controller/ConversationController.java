@@ -28,8 +28,8 @@ public class ConversationController {
 
 	@GetMapping
 	public ResponseEntity<Response> getConversations(
-		  @RequestParam(name = "offset") Integer offset,
-		  @RequestParam(name = "limit") Integer limit,
+		  @RequestParam(name = "offset", required = false, defaultValue = "0") Integer offset,
+		  @RequestParam(name = "limit", required = false, defaultValue = "10") Integer limit,
 		  @RequestParam(name = "query", required = false) String query) throws ExecutionException,
 		  InterruptedException, TimeoutException {
 		CompletableFuture<Response> responseCompletableFuture = conversationService.getConversations(offset, limit, query);

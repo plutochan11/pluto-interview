@@ -66,7 +66,7 @@ public class MockInterviewService {
 
 		// Create VO
 		List<MockInterviewSessionVo> sessionVos = sessions.stream()
-			  .map(s -> new MockInterviewSessionVo(s.getId(), s.getStatus(), s.getUpdatedAt().toString()))
+			  .map(s -> new MockInterviewSessionVo(s.getId(), s.getStatusAsString(), s.getUpdatedAt().toString()))
 			  .toList();
 		Pagination pagination = Pagination.builder()
 			  .total(sessionPage.getTotalElements())
@@ -204,17 +204,13 @@ public class MockInterviewService {
 			  .orElseThrow(() -> new MockInterviewSessionNotFoundException(
 				    ErrorMessage.MOCK_INTERVIEW_SESSION_NOT_FOUND.getErrorMessage()));
 
-		// Verify if the session belongs to the current user
-//		Long userId = UserIdUtil.getUserId();
-//		if (!Objects.equals(userId, session.getCandidate().getId())) {
-//			throw new
-//		}
-
 		// Add answer to the session
 		session.addMessages(MockInterviewMessage.fromCandidate(dto.answer()));
 
 		Map<String, Boolean> doneEventValue;
 		if (session.getMessages().size() >= 10) {
+			session.setStatus(MockInterviewSession.Status.COMPLETED);
+			mockInterviewRepository.save(session);
 			doneEventValue = Map.of(
 				  "continueInterview", false
 			);
@@ -320,6 +316,11 @@ public class MockInterviewService {
 		if (!Objects.equals(userId, session.getCandidate().getId())) {
 			throw new MockInterviewSessionOwnershipException(
 				  ErrorMessage.MOCK_INTERVIEW_SESSION_OWNERSHIP_VIOLATION.getErrorMessage());
+		}
+
+		// Validate status
+		if (session.getStatus() != MockInterviewSession.Status.COMPLETED) {
+			throw new IllegalStateException("Mock interview session is not completed yet.");
 		}
 
 		ChatMemory chatMemory = chatMemoryProvider.get(session.getId());

@@ -21,6 +21,13 @@ import java.util.concurrent.TimeoutException;
 @Order(Ordered.HIGHEST_PRECEDENCE)
 @Slf4j
 public class GlobalExceptionHandler {
+	@ExceptionHandler(IllegalStateException.class)
+	public ResponseEntity<Response> handleIllegalStateException(IllegalStateException e,
+	                                                            HttpServletRequest request) {
+		Response errorResponse = Response.error(e.getMessage());
+		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+	}
+
 	@ExceptionHandler(NoSuchElementException.class)
 	public ResponseEntity<Response> handleNoSuchElementException(NoSuchElementException e,
 	                                                             HttpServletRequest request) {
