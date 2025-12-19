@@ -307,7 +307,7 @@ public class MockInterviewService {
 
 	@Async
 	public CompletableFuture<Response> getMockInterviewResult(Long sessionId) {
-		// Find session by ID and verify authority
+		// Find session by ID and validate authority
 		MockInterviewSession session = mockInterviewRepository.findById(sessionId)
 			  .orElseThrow(() -> new MockInterviewSessionNotFoundException(
 			      ErrorMessage.MOCK_INTERVIEW_SESSION_NOT_FOUND.getErrorMessage()));
@@ -318,20 +318,27 @@ public class MockInterviewService {
 				  ErrorMessage.MOCK_INTERVIEW_SESSION_OWNERSHIP_VIOLATION.getErrorMessage());
 		}
 
+		// Return result if exists
+		if (session.getResult() != null) {
+			MockInterviewResultVo vo = resultMapper.toVo(session.getResult());
+			return CompletableFuture.completedFuture(Response.ok(vo));
+		}
+
 		// Validate status
 		if (session.getStatus() != MockInterviewSession.Status.COMPLETED) {
 			throw new IllegalStateException("Mock interview session is not completed yet.");
 		}
 
+		// Create interview history manually from chat memory
 		ChatMemory chatMemory = chatMemoryProvider.get(session.getId());
 
 		// Convert chat messages to a formatted string with roles.
-		String chatHistory = chatMemory.messages().stream()
+		String interviewHistory = chatMemory.messages().stream()
 			  .map(this::formatChatMessage)
 			  .collect(Collectors.joining("\n\n"));
 
 		// Get evaluation result, persist session and map result to VO
-		MockInterviewResult result = evaluationService.evaluate(chatHistory);
+		MockInterviewResult result = evaluationService.evaluate(interviewHistory);
 		result.setSession(session);
 
 		session.setResult(result);
