@@ -21,7 +21,8 @@ public enum ErrorMessage {
 	MOCK_INTERVIEW_SESSION_NOT_FOUND("Mock interview session not found."),
 	MOCK_INTERVIEW_SESSION_OWNERSHIP_VIOLATION("Unauthorised"),
 	QUESTION_NOT_FOUND("Question not found"),
-	SERVICE_TIMEOUT("Service timeout, please try again later.");
+	SERVICE_TIMEOUT("Service timeout, please try again later."),
+	RATE_LIMIT_EXCEEDED("Rate limit exceeded. Please try again later.");
 
 	private final String errorMessage;
 

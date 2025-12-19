@@ -31,6 +31,12 @@
             <mapstruct.version>1.6.3</mapstruct.version>
 	</properties>
 	<dependencies>
+		<dependency>
+			<groupId>com.bucket4j</groupId>
+			<artifactId>bucket4j-core</artifactId>
+			<version>8.10.1</version>
+		</dependency>
+
 <!--            LangChain4j-->
             <dependency>
                   <groupId>dev.langchain4j</groupId>
