@@ -6,6 +6,7 @@ import com.pluto.pluto_interview.enums.QuestionType;
 import com.pluto.pluto_interview.exception.IllegalDifficultyLevelException;
 import com.pluto.pluto_interview.exception.IllegalQuestionTypeException;
 import com.pluto.pluto_interview.exception.UserNotFoundException;
+import com.pluto.pluto_interview.model.Question;
 import com.pluto.pluto_interview.model.Response;
 import com.pluto.pluto_interview.model.Settings;
 import com.pluto.pluto_interview.model.dto.SettingsDto;
@@ -42,8 +43,11 @@ public class SettingsService {
 			  .map(DifficultyLevel::getDifficultyLevel)
 			  .toList();
 		SettingsResponse settingsResponse = new SettingsResponse(interviewTypes,
-			  settings.getPreferredQuestionTypes(), difficultyLevels,
-			  settings.getPreferredDifficultyLevel());
+			  settings.getPreferredQuestionTypes().stream()
+				    .map(Enum::toString)
+				    .toList(),
+			  difficultyLevels,
+			  settings.getPreferredDifficultyLevel().toString());
 		return Response.ok(settingsResponse);
 	}
 
@@ -54,8 +58,8 @@ public class SettingsService {
 			  new UserNotFoundException(ErrorMessage.USER_NOT_FOUND.getErrorMessage()));
 
 		if (settingsDto.preferredQuestionTypes() != null) {
-			List<String> preferredInterviewTypes = verifyAndConvertToPreferredQuestionTypes(settingsDto);
-			settings.adjustPreferredQuestionTypes(preferredInterviewTypes);
+			List<Question.QuestionType> preferredQuestionTypes = verifyAndConvertToPreferredQuestionTypes(settingsDto);
+			settings.adjustPreferredQuestionTypes(preferredQuestionTypes);
 		} else {
 			settings.adjustPreferredQuestionTypes(null);
 		}
@@ -63,7 +67,7 @@ public class SettingsService {
 		if (settingsDto.preferredDifficultyLevel() == null) {
 			throw new IllegalDifficultyLevelException(ErrorMessage.ILLEGAL_DIFFICULTY_LEVEL.getErrorMessage());
 		}
-		String preferredDifficultyLevel = verifyAndConvertToPreferredDifficultyLevel(settingsDto);
+		Question.DifficultyLevel preferredDifficultyLevel = verifyAndConvertToPreferredDifficultyLevel(settingsDto);
 		settings.setPreferredDifficultyLevel(preferredDifficultyLevel);
 
 		// Save the new settings and assemble response
@@ -76,33 +80,39 @@ public class SettingsService {
 
 	private static SettingsResponse getSettingsResponseFrom(Settings savedSettings) {
 		SettingsResponse settingsResponse = new SettingsResponse(
-			  Arrays.stream(QuestionType.values()).map(QuestionType::getQuestionType).toList(),
-			  savedSettings.getPreferredQuestionTypes(),
-			  Arrays.stream(DifficultyLevel.values()).map(DifficultyLevel::getDifficultyLevel).toList(),
-			  savedSettings.getPreferredDifficultyLevel()
+			  Arrays.stream(Question.QuestionType.values())
+				    .map(Enum::toString)
+				    .toList(),
+			  savedSettings.getPreferredQuestionTypes().stream()
+				    .map(Enum::toString)
+				    .toList(),
+			  Arrays.stream(Question.DifficultyLevel.values())
+				    .map(Enum::toString)
+				    .toList(),
+			  savedSettings.getPreferredDifficultyLevel().toString()
 		);
 		return settingsResponse;
 	}
 
-	private static String verifyAndConvertToPreferredDifficultyLevel(SettingsDto settingsDto) {
-		return Arrays.stream(DifficultyLevel.values())
-			  .filter(difficultyLevel ->
-				    difficultyLevel.getDifficultyLevel().equalsIgnoreCase(settingsDto.preferredDifficultyLevel()))
+	private static Question.DifficultyLevel verifyAndConvertToPreferredDifficultyLevel(
+		  SettingsDto settingsDto) {
+		return Arrays.stream(Question.DifficultyLevel.values())
+			  .filter(dl -> settingsDto.preferredDifficultyLevel()
+				    .equalsIgnoreCase(dl.toString()))
 			  .findFirst()
 			  .orElseThrow(() ->
-				    new IllegalDifficultyLevelException(ErrorMessage.ILLEGAL_DIFFICULTY_LEVEL.getErrorMessage()))
-			  .getDifficultyLevel();
+				    new IllegalDifficultyLevelException(ErrorMessage
+					      .ILLEGAL_DIFFICULTY_LEVEL.getErrorMessage()));
 	}
 
-	private static List<String> verifyAndConvertToPreferredQuestionTypes(SettingsDto settingsDto) {
+	private static List<Question.QuestionType> verifyAndConvertToPreferredQuestionTypes(SettingsDto settingsDto) {
 		return settingsDto.preferredQuestionTypes().stream()
-			  .map(questionType -> Arrays.stream(QuestionType.values())
-				    .filter(enumQuestionType ->
-						enumQuestionType.getQuestionType().equalsIgnoreCase(questionType))
+			  .map(pqt -> Arrays.stream(Question.QuestionType.values())
+				    .filter(qt ->
+						qt.toString().equalsIgnoreCase(pqt))
 				    .findFirst()
 				    .orElseThrow(() ->
-						new IllegalQuestionTypeException(ErrorMessage.ILLEGAL_QUESTION_TYPE.getErrorMessage()))
-				    .getQuestionType())
+						new IllegalQuestionTypeException(ErrorMessage.ILLEGAL_QUESTION_TYPE.getErrorMessage())))
 			  .toList();
 	}
 }

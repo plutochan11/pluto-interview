@@ -1,7 +1,7 @@
 package com.pluto.pluto_interview.model;
 
 import jakarta.validation.constraints.NotNull;
-
+import lombok.Getter;
 public record Response(@NotNull boolean success, String message, Object data, Object error) {
 	public static Response ok() {
 		return new Response(true, null, null, null);
@@ -13,5 +13,9 @@ public record Response(@NotNull boolean success, String message, Object data, Ob
 
 	public static Response error(String message) {
 		return new Response(false, message, null, null);
+	}
+
+	public Object getData() {
+		return data;
 	}
 }

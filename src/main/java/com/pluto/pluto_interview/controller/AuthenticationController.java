@@ -1,56 +1,61 @@
 package com.pluto.pluto_interview.controller;
 
-import com.pluto.pluto_interview.enums.ErrorMessage;
 import com.pluto.pluto_interview.model.Response;
-import com.pluto.pluto_interview.model.dto.AuthenticationDto;
+import com.pluto.pluto_interview.model.dto.AuthenticationCredential;
 import com.pluto.pluto_interview.service.AuthenticationService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executor;
+import java.util.concurrent.*;
 
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/auth")
 public class AuthenticationController {
-	private final AuthenticationService authService;
+	private final AuthenticationService service;
 	private final Executor executor;
+	private final int SERVICE_TIMEOUT_SECONDS = 20;
 
 	@PostMapping("/register")
-	public CompletableFuture<ResponseEntity<Response>> register(@Valid @RequestBody AuthenticationDto authDto) {
-//		Response response = authService.register(authDto);
-//		return ResponseEntity.status(HttpStatus.CREATED).body(response);
-
-		return CompletableFuture.supplyAsync(() -> {
-			Response response = authService.register(authDto);
-			return ResponseEntity.status(HttpStatus.CREATED).body(response);
-		}, executor);
+	public CompletableFuture<ResponseEntity<Response>> register(
+		  @Valid @RequestBody AuthenticationCredential credential) throws ExecutionException,
+		  InterruptedException, TimeoutException {
+		return service.register(credential)
+			  .orTimeout(SERVICE_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+			  .thenApply(response -> ResponseEntity.status(HttpStatus.CREATED).body(response));
 	}
 
 	@PostMapping("login")
-	public ResponseEntity<Response> login(@Valid @RequestBody AuthenticationDto authDto) {
-		Response response = authService.login(authDto);
-		return ResponseEntity.ok(response);
+	public CompletableFuture<ResponseEntity<Response>> login(
+		  @Valid @RequestBody AuthenticationCredential credential) throws ExecutionException,
+		  InterruptedException, TimeoutException {
+		return service.login(credential)
+			  .orTimeout(SERVICE_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+			  .thenApply(ResponseEntity::ok);
 	}
 
-	@PostMapping("/logout")
-	public ResponseEntity<Response> logout(@RequestHeader(name = "Authorization") String authHeader) {
-		// Verify if it's a bearer auth token
-		if (!authHeader.startsWith("Bearer")) {
-			return ResponseEntity.noContent().build();
-		}
+	@GetMapping("/refresh-token")
+	public CompletableFuture<ResponseEntity<Response>> refreshToken(@RequestParam String refreshToken)
+		  throws ExecutionException, InterruptedException, TimeoutException {
+		return CompletableFuture.supplyAsync(() -> service.refreshToken(refreshToken), executor)
+			  .orTimeout(SERVICE_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+			  .thenApply(ResponseEntity::ok);
+	}
 
-		// Extract the token
-		String token = authHeader.substring(7);
-		// Make the token invalid
-		authService.logout(token);
-		// Return
-		Response response = Response.ok();
-		return ResponseEntity.ok(response);
+	/**
+	 * Log out user
+	 * @return
+	 */
+	@PatchMapping("/logout")
+	public CompletableFuture<ResponseEntity<Response>> logout(@RequestParam String token) {
+//		CompletableFuture<Response> responseCompletableFuture = service.logout(refreshToken);
+//		Response response = responseCompletableFuture.get(SERVICE_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+//		return ResponseEntity.ok(response);
+		return CompletableFuture.supplyAsync(() -> service.logout(token), executor)
+			  .thenApply(ResponseEntity::ok)
+			  .orTimeout(SERVICE_TIMEOUT_SECONDS, TimeUnit.SECONDS);
 	}
 }

@@ -16,24 +16,40 @@ public class Settings {
 	@Id
 	private Long userId;
 
+	@Enumerated(EnumType.STRING)
 	@ElementCollection
 	@CollectionTable(name = "user_preferred_interview_types", joinColumns
 		  = @JoinColumn(name = "user_id"))
-	private List<String> preferredQuestionTypes = new ArrayList<>();
-	private String preferredDifficultyLevel;
+	private List<Question.QuestionType> preferredQuestionTypes = new ArrayList<>();
+
+	@Enumerated(EnumType.STRING)
+	@Column(nullable = false)
+	private Question.DifficultyLevel preferredDifficultyLevel;
 
 	@OneToOne
 	@MapsId
-	@JoinColumn
-	@ToString.Exclude
+	@JoinColumn(nullable = false)
+	@Setter(AccessLevel.PRIVATE)
 	private User user;
+
+	public static Settings withDefault(User user) {
+		List<Question.QuestionType> defaultQuestionTypes = List.of(Question.QuestionType.BEHAVIOURAL, Question.QuestionType.CODING);
+		Question.DifficultyLevel defaultDifficultyLevel = Question.DifficultyLevel.MEDIUM;
+
+		return Settings.builder()
+			  .userId(user.getId())
+			  .preferredQuestionTypes(defaultQuestionTypes)
+			  .preferredDifficultyLevel(defaultDifficultyLevel)
+			  .user(user)
+			  .build();
+	}
 
 	/**
 	 * Adjust preferred interview types.
 	 * Pass null to clear the list.
 	 * @param preferredInterviewTypes
 	 */
-	public void adjustPreferredQuestionTypes(@Nullable List<String> preferredInterviewTypes) {
+	public void adjustPreferredQuestionTypes(@Nullable List<Question.QuestionType> preferredInterviewTypes) {
 		if (preferredInterviewTypes == null) {
 			this.preferredQuestionTypes.clear();
 			return;

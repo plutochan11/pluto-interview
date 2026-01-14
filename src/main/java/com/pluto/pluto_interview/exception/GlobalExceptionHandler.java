@@ -9,6 +9,7 @@ import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
@@ -21,6 +22,32 @@ import java.util.concurrent.TimeoutException;
 @Order(Ordered.HIGHEST_PRECEDENCE)
 @Slf4j
 public class GlobalExceptionHandler {
+	@ExceptionHandler(IllegalTokenException.class)
+	public ResponseEntity<Response> handleIllegalTokenException(IllegalTokenException e) {
+		Response response = Response.error(e.getMessage());
+		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+	}
+
+	@ExceptionHandler(UnknownTokenException.class)
+	public ResponseEntity<Response> handleUnknownTokenException(UnknownTokenException e) {
+		Response response = Response.error(e.getMessage());
+		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+	}
+
+	@ExceptionHandler(ExpiredTokenException.class)
+	public ResponseEntity<Response> handleExpiredTokenException(ExpiredTokenException e) {
+		Response response = Response.error(e.getMessage());
+		return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
+	}
+
+	@ExceptionHandler(MissingServletRequestParameterException.class)
+	public ResponseEntity<Response> handleMissingServletRequestParameterException(
+		  MissingServletRequestParameterException e
+	) {
+		Response response = Response.error(ErrorMessage.NOT_LOGGED_IN.getErrorMessage());
+		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+	}
+
 	@ExceptionHandler(IllegalStateException.class)
 	public ResponseEntity<Response> handleIllegalStateException(IllegalStateException e,
 	                                                            HttpServletRequest request) {
@@ -83,7 +110,7 @@ public class GlobalExceptionHandler {
 		} else {
 			throw cause;
 		}
-		log.error("Asynchronous error occurred at {}: {}", request.getRequestURI(), ex.getMessage());
+		log.error("Unexpected error happened during the process of endpoint: {}; {}", request.getRequestURI(), ex.getMessage());
 		return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
 	}
 
@@ -133,7 +160,7 @@ public class GlobalExceptionHandler {
 	public ResponseEntity<Response> handleEmailAlreadyUsedException(
 		  EmailAlreadyUsedException ex, HttpServletRequest request) {
 		Response response = Response.error(ex.getMessage());
-		log.info("A new user attempted to register with an used email at {}",
+		log.info("A user attempted to register with an used email at {}",
 			  request.getRequestURI());
 		return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
 	}

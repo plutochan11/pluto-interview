@@ -1,4 +1,7 @@
 package com.pluto.pluto_interview.model.dto;
 
-public record AuthenticationResult(String username, String token, Long expiresIn) {
+import jakarta.validation.constraints.NotBlank;
+
+public record AuthenticationResult(@NotBlank String username, @NotBlank String token,
+                                   @NotBlank String refreshToken) {
 }

@@ -89,8 +89,8 @@ public class MockInterviewService {
 			  .orElseThrow(() -> new UserNotFoundException(ErrorMessage.USER_NOT_FOUND.getErrorMessage()));
 
 		Settings settings = user.getSettings();
-		List<String> preferredQuestionTypes = settings.getPreferredQuestionTypes();
-		String preferredDifficultyLevel = settings.getPreferredDifficultyLevel();
+		List<Question.QuestionType> preferredQuestionTypes = settings.getPreferredQuestionTypes();
+		Question.DifficultyLevel preferredDifficultyLevel = settings.getPreferredDifficultyLevel();
 
 		// Get relevant questions
 		Specification<Question> spec = Specification.unrestricted();

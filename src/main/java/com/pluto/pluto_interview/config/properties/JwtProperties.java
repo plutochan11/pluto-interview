@@ -1,20 +1,20 @@
 package com.pluto.pluto_interview.config.properties;
 
+import lombok.Data;
 import lombok.Getter;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.bind.ConstructorBinding;
+import org.springframework.lang.Nullable;
+
+import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 
 @ConfigurationProperties("jwt")
-@Getter
+@Data
 public class JwtProperties {
-	private final String secret;
-	private final long ttl;
-	private final String issuer;
-
-	@ConstructorBinding
-	public JwtProperties(String secret, long ttl, String issuer) {
-		this.secret = secret;
-		this.ttl = ttl;
-		this.issuer = issuer;
-	}
+	private String secret;
+	private long ttl = 1;
+	private TimeUnit timeUnit = TimeUnit.HOURS;
+	private long refreshTokenTtl = 72; // 3 days
+	private String issuer = "";
 }

@@ -36,8 +36,8 @@ public class SecurityConfig {
 			  .authorizeHttpRequests(requests ->
 				    requests.requestMatchers("/auth/**").permitAll()
 					      .anyRequest().authenticated())
-			  .addFilterBefore(rateLimitingFilter, JwtFilter.class)
 			  .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
+			  .addFilterBefore(rateLimitingFilter, JwtFilter.class)
 			  .build();
 	}
 

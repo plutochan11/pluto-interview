@@ -1,5 +1,6 @@
 package com.pluto.pluto_interview.model.dto;
 
+import com.pluto.pluto_interview.model.Question;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
