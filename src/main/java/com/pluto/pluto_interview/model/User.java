@@ -18,20 +18,19 @@ public class User {
 	@GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "user_id_sequence")
 	private Long id;
 
-	@NotBlank
-	@Column(nullable = false)
-	private String username;
+	@NonNull
+	@Column(unique = true, nullable = false)
+	private String email;
 
+	@NonNull
 	@ToString.Exclude
 	@JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
-	@NotBlank
 	@Column(nullable = false)
 	private String password;
 
-	@Email
-	@NotBlank
-	@Column(unique = true, nullable = false)
-	private String email;
+	@NonNull
+	@Column(nullable = false)
+	private String username;
 
 	@OneToOne(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
 	private Settings settings;
