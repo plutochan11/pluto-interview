@@ -26,7 +26,8 @@ public enum ErrorMessage {
 	REFRESH_TOKEN("Token Expired, Refresh Token First"),
 	TOKEN_EXPIRED("The token has expired."),
 	UNKNOWN_TOKEN("Unknown token."),
-	ILLEGAL_TOKEN("Your user info cannot be recognised. Please log in again.");
+	ILLEGAL_TOKEN("Your user info cannot be recognised. Please log in again."),
+	EMAIL_REGISTERED("Email is registered, please log in.");
 
 	private final String errorMessage;
 

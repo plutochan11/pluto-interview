@@ -13,7 +13,6 @@ import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
-import java.util.Arrays;
 import java.util.NoSuchElementException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
@@ -22,6 +21,12 @@ import java.util.concurrent.TimeoutException;
 @Order(Ordered.HIGHEST_PRECEDENCE)
 @Slf4j
 public class GlobalExceptionHandler {
+	@ExceptionHandler(EmailRegisteredException.class)
+	public ResponseEntity<Response> handleEmailRegisteredException(EmailRegisteredException e) {
+		Response response = Response.error(e.getMessage());
+		return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
+	}
+
 	@ExceptionHandler(IllegalTokenException.class)
 	public ResponseEntity<Response> handleIllegalTokenException(IllegalTokenException e) {
 		Response response = Response.error(e.getMessage());
@@ -156,9 +161,9 @@ public class GlobalExceptionHandler {
 		return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
 	}
 
-	@ExceptionHandler(EmailAlreadyUsedException.class)
+	@ExceptionHandler(EmailAlreadyRegisteredException.class)
 	public ResponseEntity<Response> handleEmailAlreadyUsedException(
-		  EmailAlreadyUsedException ex, HttpServletRequest request) {
+		  EmailAlreadyRegisteredException ex, HttpServletRequest request) {
 		Response response = Response.error(ex.getMessage());
 		log.info("A user attempted to register with an used email at {}",
 			  request.getRequestURI());

@@ -41,3 +41,6 @@ langchain4j:
                 api-key: ${dashscope.api-key}
                 model-name: text-embedding-v4
             
+service:
+    auth:
+        timeout: 5s

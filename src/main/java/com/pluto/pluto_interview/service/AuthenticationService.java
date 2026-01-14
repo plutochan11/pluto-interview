@@ -1,23 +1,20 @@
 package com.pluto.pluto_interview.service;
 
-import com.pluto.pluto_interview.config.properties.JwtProperties;
 import com.pluto.pluto_interview.enums.ErrorMessage;
 import com.pluto.pluto_interview.event.TokenCreatedEvent;
-import com.pluto.pluto_interview.exception.EmailAlreadyUsedException;
-import com.pluto.pluto_interview.exception.EmailNotRegisteredException;
-import com.pluto.pluto_interview.exception.UserNotLoggedInException;
-import com.pluto.pluto_interview.exception.WrongPasswordException;
+import com.pluto.pluto_interview.exception.*;
 import com.pluto.pluto_interview.model.Response;
 import com.pluto.pluto_interview.model.Settings;
 import com.pluto.pluto_interview.model.User;
-import com.pluto.pluto_interview.model.dto.AuthenticationCredential;
+import com.pluto.pluto_interview.model.dto.AuthenticationRequest;
 import com.pluto.pluto_interview.model.dto.AuthenticationResult;
 import com.pluto.pluto_interview.model.vo.RefreshTokenResult;
 import com.pluto.pluto_interview.repository.UserRepository;
 import io.jsonwebtoken.Claims;
-import lombok.RequiredArgsConstructor;
+import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -30,66 +27,78 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 @Service
-@RequiredArgsConstructor
 @Slf4j
 public class AuthenticationService {
-	private final UserRepository userRepository;
+	private final UserRepository userRepo;
 	private final PasswordEncoder passwordEncoder;
-	private final JwtProperties jwtProperties;
 	private final JwtService jwtService;
-	private final ApplicationEventPublisher eventPublisher;
+	private final ApplicationEventPublisher appEventPublisher;
 	private final CacheService cacheService;
 
 	public static final String TOKEN_CACHE_KEY_PREFIX = "token:userId:";
 	public static final String REFRESH_TOKEN_CACHE_KEY_PREFIX = "refreshToken:userId:";
 	public static final String USER_ID_CLAIM_KEY = "userId";
 
-	@Async
-	@Transactional
-	public CompletableFuture<Response> register(AuthenticationCredential credential) {
-		// Check if the email is already used
-		String email = credential.email();
-		userRepository.findByEmail(email)
+	public AuthenticationService(UserRepository userRepo, PasswordEncoder passwordEncoder, JwtService jwtService, ApplicationEventPublisher appEventPublisher, CacheService cacheService) {
+		this.userRepo = userRepo;
+		this.passwordEncoder = passwordEncoder;
+		this.jwtService = jwtService;
+		this.appEventPublisher = appEventPublisher;
+		this.cacheService = cacheService;
+	}
+
+	/**
+	 * Register user
+	 * @param authRequest A request containing relevant authentication information.
+	 * @return A {@link Response} containing authentication tokens.
+	 * @throws EmailAlreadyRegisteredException if the email is already registered.
+	 */
+	public Response register(AuthenticationRequest authRequest) {
+		// Check the presence of the email
+		String email = authRequest.email();
+		userRepo.findByEmail(email)
+			  // If present, throw an exception
 			  .ifPresent(user -> {
-				  throw new EmailAlreadyUsedException(ErrorMessage.EMAIL_ALREADY_REGISTERED.getErrorMessage());
+				  throw new EmailAlreadyRegisteredException(ErrorMessage.EMAIL_ALREADY_REGISTERED.getErrorMessage());
 			  });
 
-		// Persist new user to the database
-		String defaultUsername = email.substring(0, email.indexOf("@"));
-		String encodedPassword = passwordEncoder.encode(credential.password());
+		// Add the new user to the database
+		// The username defaults to the domain part of the register email.
+		String username = email.substring(0, email.indexOf("@"));
+		String password = passwordEncoder.encode(authRequest.password());
+		User user = User.newUser(email, password, username);
 
-		User user = User.builder()
-			  .username(defaultUsername)
-			  .password(encodedPassword)
-			  .email(email)
-			  .build();
-		Settings settings = Settings.withDefault(user);
-		user.setSettings(settings);
-		User savedUser = userRepository.save(user);
+		User savedUser = null;
+		try {
+			savedUser = userRepo.save(user);
+			// Throw an exception if the unique constraint is violated (rarely happens under high concurrency)
+		} catch (DataIntegrityViolationException | ConstraintViolationException e){
+			throw new EmailRegisteredException(ErrorMessage.EMAIL_REGISTERED.getErrorMessage());
+		}
 
 		// Create JWT token and refresh token
 		Map<String, Object> claims = Map.of(USER_ID_CLAIM_KEY, user.getId());
 		String token = jwtService.generate(claims, null, null);
 		String refreshToken = jwtService.generateRefreshToken(claims);
 
-		// Publish the created refresh token
+		// Publish events with the created tokens
 		String tokenCacheKey = TOKEN_CACHE_KEY_PREFIX + user.getId();
 		String refreshTokenCacheKey = REFRESH_TOKEN_CACHE_KEY_PREFIX + user.getId();
-		eventPublisher.publishEvent(new TokenCreatedEvent(this, token, tokenCacheKey));
-		eventPublisher.publishEvent(new TokenCreatedEvent(this, refreshToken, refreshTokenCacheKey));
+		appEventPublisher.publishEvent(new TokenCreatedEvent(this, token, tokenCacheKey));
+		appEventPublisher.publishEvent(new TokenCreatedEvent(this, refreshToken, refreshTokenCacheKey));
 
-		// Create VO, log and complete future
-		AuthenticationResult result = new AuthenticationResult(user.getUsername(), token, refreshToken);
+		// Create VO
+		AuthenticationResult authResult = new AuthenticationResult(user.getUsername(), token, refreshToken);
 
 		log.info("New user registered (ID: {})", savedUser.getId());
-		return CompletableFuture.completedFuture(Response.ok(result));
+		return Response.ok(authResult);
 	}
 
 	@Async
 	@Transactional
-	public CompletableFuture<Response> login(AuthenticationCredential credential) {
+	public CompletableFuture<Response> login(AuthenticationRequest credential) {
 		// Verify user credentials
-		User registeredUser = userRepository.findByEmail(credential.email())
+		User registeredUser = userRepo.findByEmail(credential.email())
 			  .orElseThrow(() ->
 			      new EmailNotRegisteredException(ErrorMessage.EMAIL_NOT_REGISTERED.getErrorMessage()));
 		if (!passwordEncoder.matches(credential.password(), registeredUser.getPassword())) {
@@ -104,8 +113,8 @@ public class AuthenticationService {
 		// Publish event
 		String tokenCacheKey = TOKEN_CACHE_KEY_PREFIX + registeredUser.getId();
 		String refreshTokenCacheKey = REFRESH_TOKEN_CACHE_KEY_PREFIX + registeredUser.getId();
-		eventPublisher.publishEvent(new TokenCreatedEvent(this, token, tokenCacheKey));
-		eventPublisher.publishEvent(new TokenCreatedEvent(this, refreshToken, refreshTokenCacheKey));
+		appEventPublisher.publishEvent(new TokenCreatedEvent(this, token, tokenCacheKey));
+		appEventPublisher.publishEvent(new TokenCreatedEvent(this, refreshToken, refreshTokenCacheKey));
 
 		// Create VO, log and complete future
 		AuthenticationResult authenticationResult = new AuthenticationResult(registeredUser.getUsername(), token, refreshToken);

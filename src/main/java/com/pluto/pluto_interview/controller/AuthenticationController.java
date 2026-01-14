@@ -1,61 +1,75 @@
 package com.pluto.pluto_interview.controller;
 
 import com.pluto.pluto_interview.model.Response;
-import com.pluto.pluto_interview.model.dto.AuthenticationCredential;
+import com.pluto.pluto_interview.model.dto.AuthenticationRequest;
 import com.pluto.pluto_interview.service.AuthenticationService;
 import jakarta.validation.Valid;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.Duration;
 import java.util.concurrent.*;
 
 @RestController
-@RequiredArgsConstructor
 @RequestMapping("/auth")
 public class AuthenticationController {
-	private final AuthenticationService service;
+	private final AuthenticationService authService;
 	private final Executor executor;
-	private final int SERVICE_TIMEOUT_SECONDS = 20;
+
+	private final Duration SERVICE_TIMEOUT;
+	private final TimeUnit TIMEOUT_UNIT = TimeUnit.SECONDS;
+
+	public AuthenticationController(AuthenticationService authService, Executor executor,
+	                                @Value("${service.auth.timeout}") Duration serviceTimeout) {
+		this.authService = authService;
+		this.executor = executor;
+
+		// Initialise SERVICE_TIMEOUT with a default value if not provided
+		if (serviceTimeout == null) {
+			serviceTimeout = Duration.ofSeconds(10);
+		}
+		SERVICE_TIMEOUT = serviceTimeout;
+	}
 
 	@PostMapping("/register")
 	public CompletableFuture<ResponseEntity<Response>> register(
-		  @Valid @RequestBody AuthenticationCredential credential) throws ExecutionException,
+		  @Valid @RequestBody AuthenticationRequest authRequest) throws ExecutionException,
 		  InterruptedException, TimeoutException {
-		return service.register(credential)
-			  .orTimeout(SERVICE_TIMEOUT_SECONDS, TimeUnit.SECONDS)
-			  .thenApply(response -> ResponseEntity.status(HttpStatus.CREATED).body(response));
+//		return service.register(authRequest)
+//			  .orTimeout(SERVICE_TIMEOUT.toSeconds(), TIMEOUT_UNIT)
+//			  .thenApply(response -> ResponseEntity.status(HttpStatus.CREATED).body(response));
+
+		return CompletableFuture.supplyAsync(() -> authService.register(authRequest), executor)
+			  .thenApply(response -> ResponseEntity.status(HttpStatus.CREATED).body(response))
+			  .orTimeout(SERVICE_TIMEOUT.toSeconds(), TIMEOUT_UNIT);
 	}
 
 	@PostMapping("login")
 	public CompletableFuture<ResponseEntity<Response>> login(
-		  @Valid @RequestBody AuthenticationCredential credential) throws ExecutionException,
+		  @Valid @RequestBody AuthenticationRequest credential) throws ExecutionException,
 		  InterruptedException, TimeoutException {
-		return service.login(credential)
-			  .orTimeout(SERVICE_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+		return authService.login(credential)
+			  .orTimeout(SERVICE_TIMEOUT.toSeconds(), TIMEOUT_UNIT)
 			  .thenApply(ResponseEntity::ok);
 	}
 
 	@GetMapping("/refresh-token")
 	public CompletableFuture<ResponseEntity<Response>> refreshToken(@RequestParam String refreshToken)
 		  throws ExecutionException, InterruptedException, TimeoutException {
-		return CompletableFuture.supplyAsync(() -> service.refreshToken(refreshToken), executor)
-			  .orTimeout(SERVICE_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+		return CompletableFuture.supplyAsync(() -> authService.refreshToken(refreshToken), executor)
+			  .orTimeout(SERVICE_TIMEOUT.toSeconds(), TIMEOUT_UNIT)
 			  .thenApply(ResponseEntity::ok);
 	}
 
-	/**
-	 * Log out user
-	 * @return
-	 */
 	@PatchMapping("/logout")
 	public CompletableFuture<ResponseEntity<Response>> logout(@RequestParam String token) {
 //		CompletableFuture<Response> responseCompletableFuture = service.logout(refreshToken);
-//		Response response = responseCompletableFuture.get(SERVICE_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+//		Response response = responseCompletableFuture.get(SERVICE_TIMEOUT_SECONDS, TIMEOUT_UNIT);
 //		return ResponseEntity.ok(response);
-		return CompletableFuture.supplyAsync(() -> service.logout(token), executor)
+		return CompletableFuture.supplyAsync(() -> authService.logout(token), executor)
 			  .thenApply(ResponseEntity::ok)
-			  .orTimeout(SERVICE_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+			  .orTimeout(SERVICE_TIMEOUT.toSeconds(), TIMEOUT_UNIT);
 	}
 }

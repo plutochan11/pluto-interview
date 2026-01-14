@@ -34,4 +34,16 @@ public class User {
 
 	@OneToOne(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
 	private Settings settings;
+
+	public static User newUser(String email, String password, String username) {
+		User user = User.builder()
+			  .email(email)
+			  .password(password)
+			  .username(username)
+			  .build();
+		Settings settings = Settings.withDefault(user);
+		user.setSettings(settings);
+
+		return user;
+	}
 }
