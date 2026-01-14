@@ -12,7 +12,9 @@ import com.pluto.pluto_interview.model.vo.RefreshTokenResult;
 import com.pluto.pluto_interview.repository.UserRepository;
 import io.jsonwebtoken.Claims;
 import jakarta.validation.ConstraintViolationException;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEvent;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.scheduling.annotation.Async;
@@ -86,6 +88,9 @@ public class AuthenticationService {
 		String refreshTokenCacheKey = REFRESH_TOKEN_CACHE_KEY_PREFIX + user.getId();
 		appEventPublisher.publishEvent(new TokenCreatedEvent(this, token, tokenCacheKey));
 		appEventPublisher.publishEvent(new TokenCreatedEvent(this, refreshToken, refreshTokenCacheKey));
+
+		// Publish events with the created user
+		appEventPublisher.publishEvent(new UserCreatedEvent(this, savedUser));
 
 		// Create VO
 		AuthenticationResult authResult = new AuthenticationResult(user.getUsername(), token, refreshToken);
@@ -169,5 +174,15 @@ public class AuthenticationService {
 		log.info("User(ID: {}) refreshed JWT token", userId);
 
 		return Response.ok(result);
+	}
+
+	@Getter
+	public static class UserCreatedEvent extends ApplicationEvent {
+		private final User user;
+
+		public UserCreatedEvent(Object source, User user) {
+			super(source);
+			this.user = user;
+		}
 	}
 }
