@@ -60,7 +60,7 @@ public class JwtService implements TokenService{
 			  .claims(claims)
 			  .issuer(jwtProperties.getIssuer())
 			  .issuedAt(Date.from(Instant.now()))
-			  .expiration(Date.from(Instant.now().plusSeconds(jwtProperties.getRefreshTokenTtl())))
+			  .expiration(Date.from(Instant.now().plus(jwtProperties.getRefreshTokenTtl())))
 			  .signWith(key)
 			  .compact();
 	}
