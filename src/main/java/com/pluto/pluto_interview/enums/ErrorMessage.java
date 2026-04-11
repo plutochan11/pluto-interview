@@ -27,7 +27,9 @@ public enum ErrorMessage {
 	TOKEN_EXPIRED("The token has expired."),
 	UNKNOWN_TOKEN("Unknown token."),
 	ILLEGAL_TOKEN("Your user info cannot be recognised. Please log in again."),
-	EMAIL_REGISTERED("Email is registered, please log in.");
+	EMAIL_REGISTERED("Email is registered, please log in."),
+	ALREADY_LOGGED_IN("You are already logged in. Please do not log in repeatedly."),
+	TIMEOUT("Operation timeout, please try again.");
 
 	private final String errorMessage;
 

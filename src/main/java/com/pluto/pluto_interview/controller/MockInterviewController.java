@@ -3,8 +3,6 @@ package com.pluto.pluto_interview.controller;
 import com.pluto.pluto_interview.model.Response;
 import com.pluto.pluto_interview.model.dto.AnswerMockInterviewSessionDto;
 import com.pluto.pluto_interview.model.dto.EndMockInterviewSessionDto;
-import com.pluto.pluto_interview.model.dto.GetMockInterviewResultDto;
-import com.pluto.pluto_interview.model.dto.GetMockInterviewSessionsDto;
 import com.pluto.pluto_interview.service.MockInterviewService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -27,35 +25,69 @@ public class MockInterviewController {
 	private final int SERVICE_TIMEOUT = 30; // seconds
 
 	@GetMapping
-	public ResponseEntity<Response> getMockInterviewSessions(
+	public ResponseEntity<Response> getSessionsByPagination(
 		  @RequestParam(name = "offset", required = false, defaultValue = "0") Integer offset,
 		  @RequestParam(name = "limit", required = false, defaultValue = "10") Integer limit)
-		  throws ExecutionException, InterruptedException, TimeoutException {
+	{
+
 		CompletableFuture<Response> responseCompletableFuture = mockInterviewService.getMockInterviewSessions(offset, limit);
-		Response response = responseCompletableFuture.get(SERVICE_TIMEOUT, TimeUnit.SECONDS);
+
+		Response response = null;
+		try {
+			response = responseCompletableFuture.get(SERVICE_TIMEOUT, TimeUnit.SECONDS);
+		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
+			return ResponseEntity.status(500).body(
+				  Response.error("Service interrupted. Please try again later."));
+		} catch (ExecutionException e) {
+			// Rethrow with cause.
+			throw new RuntimeException(e.getCause());
+		} catch (TimeoutException e) {
+			return ResponseEntity.status(504).body(
+				  Response.error("Timeout. Please try again later."));
+		}
+
 		return ResponseEntity.ok(response);
 	}
 
 	@PostMapping
-	public SseEmitter startMockInterviewSession() throws Throwable {
+	public SseEmitter startNewSession() throws Throwable {
+
 		SseEmitter emitter = new SseEmitter(SSE_EMITTER_TIMEOUT);
 		mockInterviewService.startMockInterviewSession(emitter);
 		return emitter;
 	}
 
 	@GetMapping("/{sessionId}/messages")
-	public ResponseEntity<Response> getMessages(
+	public ResponseEntity<Response> getMessagesOfSession(
 		  @PathVariable(name = "sessionId") Long sessionId,
 		  @RequestParam(name = "offset", required = false, defaultValue = "0") Integer offset,
 		  @RequestParam(name = "limit", required = false, defaultValue = "10") Integer limit)
-		  throws ExecutionException, InterruptedException, TimeoutException {
+	{
+
 		CompletableFuture<Response> responseCompletableFuture = mockInterviewService.getMessages(sessionId, offset, limit);
-		Response response = responseCompletableFuture.get(SERVICE_TIMEOUT, TimeUnit.SECONDS);
+
+		Response response = null;
+		try {
+			response = responseCompletableFuture.get(SERVICE_TIMEOUT, TimeUnit.SECONDS);
+		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
+			return ResponseEntity.status(500).body(
+				  Response.error("Service interrupted. Please try again later."));
+		} catch (ExecutionException e) {
+			// Rethrow with cause.
+			throw new RuntimeException(e.getCause());
+		} catch (TimeoutException e) {
+			return ResponseEntity.status(504).body(
+				  Response.error("Timeout. Please try again later."));
+		}
+
 		return ResponseEntity.ok(response);
 	}
 
 	@PostMapping("/answer")
-	public SseEmitter answerMockInterviewSession(@Valid @RequestBody AnswerMockInterviewSessionDto dto) throws Throwable {
+	public SseEmitter answerToSession(@Valid @RequestBody AnswerMockInterviewSessionDto dto) throws Throwable {
+
 		// Create a SseEmitter with a timeout and pass it to the service layer
 		SseEmitter emitter = new SseEmitter(SSE_EMITTER_TIMEOUT);
 		mockInterviewService.answerMockInterviewSession(dto, emitter);
@@ -65,27 +97,32 @@ public class MockInterviewController {
 	}
 
 	@PatchMapping("/end")
-	public ResponseEntity<Response> endMockInterviewSession(@RequestBody @Valid EndMockInterviewSessionDto dto)
-		  throws ExecutionException, InterruptedException, TimeoutException {
+	public ResponseEntity<Response> endSession(@RequestBody @Valid EndMockInterviewSessionDto dto){
+
 		mockInterviewService.endMockInterviewSession(dto);
 		return ResponseEntity.ok(Response.ok());
 	}
 
-//	@GetMapping("/result")
-//	public SseEmitter getMockInterviewResult(@Valid @RequestBody GetMockInterviewResultDto dto) throws Throwable {
-//		// Create a SseEmitter with a timeout and pass it to the service layer
-//		SseEmitter emitter = new SseEmitter(SSE_EMITTER_TIMEOUT);
-//		mockInterviewService.getMockInterviewResult(dto, emitter);
-//
-//		// Return the SseEmitter
-//		return emitter;
-//	}
-
 	@GetMapping("/{sessionId}/result")
-	public ResponseEntity<Response> getMockInterviewResult(@PathVariable Long sessionId)
-		  throws ExecutionException, InterruptedException, TimeoutException {
+	public ResponseEntity<Response> getResult(@PathVariable Long sessionId) {
+
 		CompletableFuture<Response> responseCompletableFuture = mockInterviewService.getMockInterviewResult(sessionId);
-		Response response = responseCompletableFuture.get(SERVICE_TIMEOUT, TimeUnit.MINUTES);
+
+		Response response = null;
+		try {
+			response = responseCompletableFuture.get(SERVICE_TIMEOUT, TimeUnit.MINUTES);
+		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
+			return ResponseEntity.status(500).body(
+				  Response.error("Service interrupted. Please try again later."));
+		} catch (ExecutionException e) {
+			// Rethrow with cause.
+			throw new RuntimeException(e.getCause());
+		} catch (TimeoutException e) {
+			return ResponseEntity.status(504).body(
+				  Response.error("Timeout. Please try again later."));
+		}
+
 		return ResponseEntity.ok(response);
 	}
 }

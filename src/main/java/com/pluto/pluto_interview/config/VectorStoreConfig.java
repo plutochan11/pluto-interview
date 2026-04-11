@@ -10,15 +10,21 @@ import org.springframework.context.annotation.Configuration;
 
 @Configuration
 public class VectorStoreConfig {
+	private final PgVectorProperties pgVectorProperties;
+
+	public VectorStoreConfig(PgVectorProperties pgVectorProperties) {
+		this.pgVectorProperties = pgVectorProperties;
+	}
+
 	@Bean
 	public EmbeddingStore<TextSegment> embeddingStore(EmbeddingModel embeddingModel) {
 		return PgVectorEmbeddingStore.builder()
-			  .host("localhost")
-			  .port(5432)
-			  .database("pluto_interview")
-			  .user("pluto")
-			  .password("Chen@0216")
-			  .table("question_embedding")
+			  .host(pgVectorProperties.getHost())
+			  .port(pgVectorProperties.getPort())
+			  .database(pgVectorProperties.getDatabase())
+			  .user(pgVectorProperties.getUser())
+			  .password(pgVectorProperties.getPassword())
+			  .table(pgVectorProperties.getTable())
 			  .dimension(embeddingModel.embed("dimension check").content().dimension())
 			  .build();
 	}

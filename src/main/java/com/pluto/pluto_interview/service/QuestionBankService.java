@@ -42,30 +42,6 @@ public class QuestionBankService {
 	private final QuestionMapper questionMapper;
 	private final EmbeddingService embeddingService;
 
-//	public Response getQuestions(@Validated QuestionBankDto questionBankDto) {
-//		// Create a PageRequest object
-//		PageRequest pageRequest = PageRequest.of(questionBankDto.getOffset(),
-//			  questionBankDto.getLimit());
-//
-//		// Construct specifications based on the filters provided in questionBankDto
-//		Specification<Question> spec = assembleQuestionSpecification(questionBankDto);
-//
-//		// Fetch filtered and paginated questions
-////		List<Question> questions = questionRepository.findAll(spec, pageRequest).getContent();
-//		Page<Question> questions = questionRepo.findAll(spec, pageRequest);
-//		Pagination pagination = new Pagination(questions.getTotalElements(), questions.getTotalPages(),
-//			  questionBankDto.getOffset(), questionBankDto.getLimit()
-//			  );
-//		List<QuestionResult> questionResults = questions.getContent().stream()
-//			  .map(question -> new QuestionResult(question.getId(),
-//				    question.getTitle(), question.getQuestionType(),
-//				    question.getDifficultyLevel(), question.getFromCompany()))
-//			  .toList();
-//		QuestionsVo questionsVo = new QuestionsVo(questionResults, pagination);
-//		// Return a Response object
-//		return Response.ok(questionsVo);
-//	}
-
 	@Async
 	public CompletableFuture<Response> getQuestions(Integer offset, Integer limit, String query, String questionType,
 	                                                String difficultyLevel) {

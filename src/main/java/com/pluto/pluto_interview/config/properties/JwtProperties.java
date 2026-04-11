@@ -15,7 +15,7 @@ import java.util.concurrent.TimeUnit;
 public class JwtProperties {
 	private String secret;
 	private long ttl = 1;
-	private TimeUnit timeUnit = TimeUnit.HOURS;
+	private TimeUnit timeUnit = TimeUnit.DAYS;
 	private Duration refreshTokenTtl = Duration.ofDays(7); // 7 days
 	private String issuer = "";
 }

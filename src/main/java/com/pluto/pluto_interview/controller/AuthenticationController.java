@@ -7,6 +7,7 @@ import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.Duration;
@@ -21,8 +22,11 @@ public class AuthenticationController {
 	private final Duration SERVICE_TIMEOUT;
 	private final TimeUnit TIMEOUT_UNIT = TimeUnit.SECONDS;
 
-	public AuthenticationController(AuthenticationService authService, Executor executor,
-	                                @Value("${service.auth.timeout}") Duration serviceTimeout) {
+	public AuthenticationController(
+		AuthenticationService authService, 
+		Executor executor,
+	    @Value("${service.auth.timeout}") Duration serviceTimeout) 
+	{
 		this.authService = authService;
 		this.executor = executor;
 
@@ -35,41 +39,43 @@ public class AuthenticationController {
 
 	@PostMapping("/register")
 	public CompletableFuture<ResponseEntity<Response>> register(
-		  @Valid @RequestBody AuthenticationRequest authRequest) throws ExecutionException,
-		  InterruptedException, TimeoutException {
-//		return service.register(authRequest)
-//			  .orTimeout(SERVICE_TIMEOUT.toSeconds(), TIMEOUT_UNIT)
-//			  .thenApply(response -> ResponseEntity.status(HttpStatus.CREATED).body(response));
+		  @Valid @RequestBody AuthenticationRequest authRequest){
 
-		return CompletableFuture.supplyAsync(() -> authService.register(authRequest), executor)
+		return CompletableFuture.supplyAsync(() -> 
+			authService.register(authRequest), executor)
 			  .thenApply(response -> ResponseEntity.status(HttpStatus.CREATED).body(response))
 			  .orTimeout(SERVICE_TIMEOUT.toSeconds(), TIMEOUT_UNIT);
 	}
 
-	@PostMapping("login")
+	@PostMapping("/login")
 	public CompletableFuture<ResponseEntity<Response>> login(
-		  @Valid @RequestBody AuthenticationRequest credential) throws ExecutionException,
-		  InterruptedException, TimeoutException {
-		return authService.login(credential)
-			  .orTimeout(SERVICE_TIMEOUT.toSeconds(), TIMEOUT_UNIT)
-			  .thenApply(ResponseEntity::ok);
+		  @Valid @RequestBody AuthenticationRequest authRequest){
+
+		return CompletableFuture.supplyAsync(() -> 
+			authService.login(authRequest), executor)
+			  .thenApply(ResponseEntity::ok)
+			  .orTimeout(SERVICE_TIMEOUT.toSeconds(), TIMEOUT_UNIT);
 	}
 
+	// TODO Refine. Now user ID can be retrieved from security context
 	@GetMapping("/refresh-token")
-	public CompletableFuture<ResponseEntity<Response>> refreshToken(@RequestParam String refreshToken)
-		  throws ExecutionException, InterruptedException, TimeoutException {
-		return CompletableFuture.supplyAsync(() -> authService.refreshToken(refreshToken), executor)
-			  .orTimeout(SERVICE_TIMEOUT.toSeconds(), TIMEOUT_UNIT)
-			  .thenApply(ResponseEntity::ok);
+	public CompletableFuture<ResponseEntity<Response>> refreshToken(
+		@RequestParam String refreshToken)
+	{
+		return CompletableFuture.supplyAsync(() -> 
+			authService.refreshToken(refreshToken), executor)
+			.thenApply(ResponseEntity::ok)
+			.orTimeout(SERVICE_TIMEOUT.toSeconds(), TIMEOUT_UNIT);
 	}
 
 	@PatchMapping("/logout")
-	public CompletableFuture<ResponseEntity<Response>> logout(@RequestParam String token) {
-//		CompletableFuture<Response> responseCompletableFuture = service.logout(refreshToken);
-//		Response response = responseCompletableFuture.get(SERVICE_TIMEOUT_SECONDS, TIMEOUT_UNIT);
-//		return ResponseEntity.ok(response);
-		return CompletableFuture.supplyAsync(() -> authService.logout(token), executor)
-			  .thenApply(ResponseEntity::ok)
+	public ResponseEntity<Response> logout() {
+		Long userId = 
+			(Long) SecurityContextHolder.getContext()
+				.getAuthentication()
+				.getPrincipal();
+		CompletableFuture.runAsync(() -> authService.logout(userId), executor)
 			  .orTimeout(SERVICE_TIMEOUT.toSeconds(), TIMEOUT_UNIT);
+		return ResponseEntity.ok(Response.ok());
 	}
 }

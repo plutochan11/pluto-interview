@@ -30,15 +30,19 @@ public class ChatService {
 				    """),
 			  UserMessage.from(userMessage)
 		);
-		streamingChatModel.chat(userMessage, streamingResponseHandler);
+		streamingChatModel.chat(chatMessages, streamingResponseHandler);
 	}
 
 	@Async
 	public CompletableFuture<String> generateTitle(String userMessage) {
-		String prompt = String.format("Generate a concise title" +
-			  " no more than 5 words and ONLY response this title" +
-			  " for the following user query: \"%s\"", userMessage);
-		String title = chatModel.chat(prompt);
+		List<ChatMessage> chatMessages = List.of(
+			  SystemMessage.from("Generate a concise title no more than 5 words. Output title only."),
+			  UserMessage.from(userMessage)
+		);
+//		String prompt = String.format("Generate a concise title" +
+//			  " no more than 5 words and ONLY response this title" +
+//			  " for the following user query: \"%s\"", userMessage);
+		String title = chatModel.chat(chatMessages).aiMessage().text();
 		return CompletableFuture.completedFuture(title);
 	}
 }

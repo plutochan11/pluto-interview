@@ -6,6 +6,7 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -25,9 +26,15 @@ public class RedisService implements CacheService{
 	}
 
 	@Override
-	public String get(String key) {
+	public String getString(String key) {
 		return stringRedisTemplate.opsForValue()
 			  .get(key);
+	}
+
+	@Override
+	public Map<Object, Object> getHash(String key) {
+		return stringRedisTemplate.opsForHash()
+			  .entries(key);
 	}
 
 	@Override

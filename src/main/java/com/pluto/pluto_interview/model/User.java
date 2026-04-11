@@ -1,10 +1,12 @@
 package com.pluto.pluto_interview.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
-import jakarta.validation.constraints.Email;
-import jakarta.validation.constraints.NotBlank;
 import lombok.*;
+import org.springframework.data.domain.Persistable;
+
+import java.util.List;
 
 @Entity
 @Table(name = "users")
@@ -12,10 +14,9 @@ import lombok.*;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class User {
+// TODO Learn about the plumbing of Persistable and how does Spring Data JPA distinguish between new and existing entities
+public class User implements Persistable<Long> {
 	@Id
-	@SequenceGenerator(name = "user_id_sequence", sequenceName = "user_id_sequence", allocationSize = 1)
-	@GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "user_id_sequence")
 	private Long id;
 
 	@NonNull
@@ -25,6 +26,7 @@ public class User {
 	@NonNull
 	@ToString.Exclude
 	@JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
+	@Setter(AccessLevel.NONE)
 	@Column(nullable = false)
 	private String password;
 
@@ -35,13 +37,41 @@ public class User {
 	@OneToOne(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
 	private Settings settings;
 
-	public static User newUser(String email, String password, String username) {
+	@Setter(AccessLevel.NONE)
+	@JsonIgnore
+	@OneToMany(mappedBy = "user", orphanRemoval = true)
+	private List<Conversation> conversations;
+
+	@Setter(AccessLevel.NONE)
+	@JsonIgnore
+	@OneToMany(mappedBy = "candidate", orphanRemoval = true)
+	private List<MockInterviewSession> mockInterviewSessions;
+
+	@Transient
+	@JsonIgnore
+	@Builder.Default
+	private boolean isNew = true;
+
+	@Override
+	public boolean isNew() {
+		return isNew;
+	}
+
+	@PostLoad
+	@PostPersist
+	void markNotNew() {
+		this.isNew = false;
+	}
+
+	public static User newUser(Long id, String email, String password, String username) {
 		User user = User.builder()
+			  .id(id)
 			  .email(email)
 			  .password(password)
 			  .username(username)
 			  .build();
-		Settings settings = Settings.withDefault(user);
+
+		Settings settings = Settings.createDefault(user);
 		user.setSettings(settings);
 
 		return user;

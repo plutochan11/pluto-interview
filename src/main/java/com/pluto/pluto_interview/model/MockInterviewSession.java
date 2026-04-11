@@ -38,7 +38,6 @@ public class MockInterviewSession {
 
 	@OneToOne(mappedBy = "session", cascade = CascadeType.ALL, orphanRemoval = true)
 	private MockInterviewResult result;
-//	private String result;
 
 	@Column(nullable = false)
 	@CreationTimestamp

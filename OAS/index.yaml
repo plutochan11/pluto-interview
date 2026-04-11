@@ -1,0 +1,1319 @@
+openapi: 3.0.0
+info:
+  title: Pluto Interview Assistant API
+  version: 1.0.0
+  description: >
+    REST API for Pluto Interview Assistant. All responses use a consistent
+    envelope:
+
+    { success: boolean, message: string|null, data: object|null, error:
+    object|null }.
+servers:
+  - url: 'localhost:8080'
+    description: Development server
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  responses:
+    UnauthorizedError:
+      description: Unauthorized - authentication required or invalid token
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              success:
+                type: boolean
+                example: false
+              message:
+                type: string
+                example: "Authentication required or token invalid."
+              data:
+                type: object
+                nullable: true
+              error:
+                type: object
+                properties:
+                  code:
+                    type: string
+                    example: "UNAUTHORIZED"
+                  details:
+                    type: object
+    ForbiddenError:
+      description: Forbidden - authenticated but insufficient permissions
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              success:
+                type: boolean
+                example: false
+              message:
+                type: string
+                example: "Forbidden - insufficient permissions."
+              data:
+                type: object
+                nullable: true
+              error:
+                type: object
+                properties:
+                  code:
+                    type: string
+                    example: "FORBIDDEN"
+                  details:
+                    type: object
+paths:
+  /auth/register:
+    post:
+      summary: Register user
+      tags:
+        - Authentication
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: randomemail@email.com
+                password:
+                  type: string
+                  example: thisisapassword
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    nullable: true
+                  data:
+                    type: object
+                    properties:
+                      username:
+                        type: string
+                        example: "plutochan"
+                      token:
+                        type: string
+                      expiresIn:
+                        type: integer
+                        example: 259200
+                  error:
+                    type: object
+                    description: "Empty on success"
+                    nullable: true
+        '409':
+          description: Email address already used
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  message:
+                    type: string
+                    example: "Email address already used."
+                  data:
+                    type: object
+                  error:
+                    type: object
+  /auth/login:
+    post:
+      summary: Login user
+      tags:
+        - Authentication
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: randomemail@email.com
+                password:
+                  type: string
+                  example: thisisapassword
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      token:
+                        type: string
+                      expiresIn:
+                        type: integer
+                        example: 3600
+                  error:
+                    type: object
+                    nullable: true
+        '401':
+          description: Wrong Password
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  message:
+                    type: string
+                    example: Wrong password
+                  data:
+                    type: object
+                    nullable: true
+                  error:
+                    type: object
+                    nullable: true
+        '404':
+            description: Email Not Registered
+            content:
+                application/json:
+                    schema:
+                        type: object
+                        properties:
+                            success:
+                                type: boolean
+                                example: false
+                            message:
+                                type: string
+                                example: Email address not registered.
+                            data:
+                                type: object
+                                nullable: true
+                            error:
+                                type: object
+                                nullable: true
+                          
+  /auth/logout:
+    post:
+      summary: Logout user
+      tags:
+        - Authentication
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+                    example: null
+                  data:
+                    type: object
+                  error:
+                    type: object
+                    nullable: true
+  /chat/conversations/{conversationId}:
+    parameters:
+      - name: conversationId
+        in: path
+        required: true
+        description: '(Required) '
+        schema:
+          type: string
+    get:
+      summary: Retrieve Conversation History
+      tags:
+        - Conversations
+      requestBody:
+        content:
+          application/json: 
+            schema:
+              type: object
+              properties:
+                offset:
+                  type: integer
+                  example: 0
+                  nullable: true
+                limit:
+                  type: integer
+                  example: 3
+                  nullable: true
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+                    nullable: true
+                  data:
+                    type: object
+                    properties:
+                      conversationId:
+                        type: string
+                      title:
+                        type: string
+                      # createdAt:
+                      #   type: string
+                      #   format: date-time
+                      # updatedAt:
+                      #   type: string
+                      #   format: date-time
+                      messages:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            messageId:
+                              type: string
+                            role:
+                              type: string
+                              example: "user"
+                            content:
+                              type: string
+                            timestamp:
+                              type: string
+                              format: date-time
+                      pagination:
+                        type: object
+                        properties:
+                          total:
+                            type: integer
+                            example: 10
+                          pageCount:
+                            type: integer
+                            example: 4
+                          offset:
+                            type: integer
+                            example: 0  
+                          limit:
+                            type: integer
+                            example: 3
+                          isLastPage:
+                            type: boolean
+                            example: false
+                  error:
+                    type: object
+                    nullable: true
+    delete:
+      summary: Delete a Conversation
+      tags:
+        - Conversations
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+                    nullable: true
+                  data:
+                    type: object
+                    nullable: true
+                  error:
+                    type: object
+                    nullable: true
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  message:
+                    type: string
+                    example: "Conversation to delete not found."
+                  data:
+                    type: object
+                    nullable: true
+                  error:
+                    type: object     
+                    nullable: true
+  /chat/conversations/{conversationId}/messages:
+    parameters:
+      - name: conversationId
+        in: path
+        required: true
+        # description: '(Required) '
+        schema:
+          type: string
+    post:
+      summary: Send a Message
+      description: |
+        Send a message and receives a streaming response using SSE.
+        The response is streamed token by token for real-time display.
+
+        **Event Types:**
+        - `token`: Individual text tokens as they're generated.
+        - `done`: Signals completion of the response.
+      tags:
+        - Conversations
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message:
+                  type: string
+                  example: "Can you explain bubble sorting?"
+                messageId:
+                  type: string
+                  example: "msg_002"
+      responses:
+        '200':
+          description: OK
+          content:
+            text/event-stream:
+              schema:
+                type: string
+              examples:
+                tokenEvent:
+                  summary: Token stream event
+                  value: |
+                    event: token
+                    data: "Sure! "
+
+                    event: token
+                    data: "Bubble "
+
+                    event: token
+                    data: "sort "
+
+                    event: token
+                    data: "..."
+
+                doneEvent:
+                  summary: Completion event
+                  value: |
+                    event: done
+                    data: {"nextMessageId": "msg_123", "conversationId": "conv_456" }
+        '429':
+          description: "Too Many Requests"
+          headers:
+            X-RateLimit-Limit:
+              description: "Maximum number of requests allowed in the time window"
+              schema:
+                type: integer
+                example: 100
+            X-RateLimit-Remaining:
+              description: "Number of requests remaining in the current window"
+              schema:
+                type: integer
+                example: 0
+            X-RateLimit-Reset:
+              description: "Unix timestamp when the rate limit resets"
+              schema:
+                type: integer
+                example: 1733270400
+            Retry-After:
+              description: "Number of seconds to wait before retrying"
+              schema:
+                type: integer
+                example: 60
+          content:
+            application/json:
+              schema: 
+                type: object
+                properties:
+                  success: 
+                    type: boolean
+                    example: false
+                  "message": 
+                    type: string
+                    example: "You've hit the rate limits, please try later"
+                  "data":
+                    type: object
+                    nullable: true
+                  "error":
+                    type: object
+                    nullable: true
+  /chat/conversations:
+    post:
+      summary: Start a New Conversation
+      description: |
+        Start a new conversation and receive the response with SSE.
+
+        **Events:**
+        - `token` Tokens passed when they are generated in the backend.
+        - `done` Signals the completion of the streaming and 
+          provide some important information
+      tags:
+        - "Conversations"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message:
+                  type: string
+                  example: "Help me review this code snippet..."
+      responses:
+        '201':
+          description: Created
+          content:
+            text/event-stream:
+              schema:
+                type: string
+              examples:
+                tokenEvent:
+                  summary: Token stream event
+                  value: |
+                    event: token
+                    data: "Sure! "
+
+                    event: token
+                    data: "Here "
+
+                    event: token
+                    data: "is "
+
+                    event: token
+                    data: "a "
+
+                    event: token
+                    data: "code "
+
+                    event: token
+                    data: "review..."
+                doneEvent:
+                  summary: Completion event
+                  value: |
+                    event: done
+                    value: {"conversationId": "conv_789", "title": "Code Review"}
+            # application/json:
+            #   schema:
+            #     type: object
+            #     properties:
+            #       success:
+            #         type: boolean
+            #         example: true
+            #       message:
+            #         type: string
+            #         nullable: true
+            #       data:
+            #         type: object
+            #         properties:
+            #           conversationId:
+            #             type: string
+            #           title:
+            #             type: string
+            #             example: "Code Review"
+            #           response:
+            #             type: string
+            #             example: "Okay, here are some potential improvements..."
+            #           nextMessageId:
+            #             type: string
+            #       error:
+            #         type: object
+            #         nullable: true
+    get:
+      summary: Get (All) Conversations with Query
+      tags:
+        - "Conversations"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                "offset": 
+                  type: integer
+                  description: "Default to 0 if not specified"
+                  example: 0
+                  nullable: true
+                "limit":
+                  type: integer
+                  description: "Default to 10 if not specified"
+                  example: 10
+                  nullable: true
+                "query":
+                  type: string
+                  example: "Bubble sort"
+                  nullable: true
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+                    nullable: true
+                  data:
+                    type: object
+                    properties:
+                      conversations:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            conversationId:
+                              type: string
+                            title:
+                              type: string
+                            preview:
+                              type: string
+                            # createdAt:
+                            #   type: string
+                            #   format: date-time
+                            updatedAt:
+                              type: string
+                              format: date-time
+                      pagination:
+                        type: object
+                        properties:
+                          total:
+                            type: integer
+                            example: 25
+                          pageCount:
+                            type: integer
+                            example: 2
+                          offset:
+                            type: integer
+                            example: 0  
+                          limit:
+                            type: integer
+                            example: 10
+                          isLastPage:
+                            type: boolean
+                            example: false
+                  error:
+                    type: object
+                    nullable: true
+  /mock-interview/sessions/{sessionId}/answer:
+    parameters:
+      - name: sessionId
+        in: path
+        required: true
+        description: '(Required) '
+        schema:
+          type: string
+    post:
+      summary: "Answer to the Current Interview Session"
+      description: |
+        Answer to the current interview session and 
+        receive the streaming response with SSE
+
+        **Events:**
+        - ``token``: Tokens passed when they are generated in the backend.
+        - ``done``: Signals the completion of the streaming and 
+          provide some important information
+      tags:
+        - "Mock Interview"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                "messageId":
+                  type: string
+                answer:
+                  type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            text/event-stream:
+              schema: 
+                type: string
+              examples:
+                tokenEvent:
+                  summary: Token stream event
+                  value: |
+                    event: token
+                    data: "Your "
+
+                    event: token
+                    data: "answer "
+
+                    event: token
+                    data: "is "
+
+                    event: token
+                    data: "spot on..."
+                doneEvent:
+                  summary: Completion event
+                  value: |
+                    event: done
+                    value: {"continueInterview": true, "nextMessageId": "msg_456"}
+            # application/json:
+            #   schema:
+            #     type: object
+            #     properties:
+            #       success:
+            #         type: boolean
+            #       message:
+            #         type: string
+            #         nullable: true
+            #       data:
+            #         type: object
+            #         properties:
+            #           continueInterview:
+            #             type: boolean
+            #             example: true
+            #           "nextMessageId":
+            #                 type: string
+            #           "nextQuestion":
+            #                 type: string
+            #                 example: "Have you been in a team and there's a cnoflict..."
+            #       error:
+            #         type: object
+            #         nullable: true
+      
+  /mock-interview/sessions/{sessionId}/end:
+    parameters:
+      - name: sessionId
+        in: path
+        required: true
+        description: '(Required) '
+        schema:
+          type: string
+    post:
+      summary: End Mock Interview
+      tags:
+        - "Mock Interview"
+      responses:
+        '200':
+          description: "OK"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+                    nullable: true
+                  data:
+                    type: object
+                  error:
+                    type: object
+                    nullable: true
+        "404":
+          description: "Session Not Found"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  message:
+                    type: string
+                    example: "Session to Delete Not Found"
+                  data:
+                    type: object
+                    nullable: true
+                  error:
+                    type: object
+                    nullable: true
+  /mock-interview/sessions/{sessionId}/result:
+    parameters:
+      - name: sessionId
+        in: path
+        required: true
+        # description: '(Required) '
+        schema:
+          type: string
+    get:
+      summary: Get Mock Interview Evaluation Results
+      tags:
+        - "Mock Interview"
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+                    nullable: true
+                  data:
+                    type: object
+                    properties:
+                      sessionId:
+                        type: string
+                      overallScore:
+                        type: number
+                        example: 8.5
+                      duration:
+                        type: string
+                        example: "30:25"
+                      questionsAnswered:
+                        type: integer
+                        example: 5
+                      avgResponseTime:
+                        type: string
+                        example: "1:35"
+                      evaluation:
+                        type: object
+                        properties:
+                          strengths:
+                            type: array
+                            items:
+                              type: string
+                          improvements:
+                            type: array
+                            items:
+                              type: string
+                          detailedFeedback:
+                            type: string
+                          recommendations:
+                            type: array
+                            items:
+                              type: string
+                      completedAt:
+                        type: string
+                        format: date-time
+                  error:
+                    type: object
+                    nullable: true
+        "404":
+          description: "Session Not Found"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  message:
+                    type: string
+                    example: "Session Not Found"
+                  data:
+                    type: object
+                    nullable: true
+                  error:
+                    type: object
+                    nullable: true
+  /mock-interview/sessions:
+    get:
+      summary: List All Mock Interview Sessions
+      tags:
+        - "Mock Interview"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                "offset": 
+                  type: integer
+                  description: "Default to 0 if not specified"
+                  example: 0
+                  nullable: true
+                "limit":
+                  type: integer
+                  description: "Default to 10 if not specified"
+                  example: 10
+                  nullable: true
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+                    nullable: true
+                  data:
+                    type: object
+                    properties:
+                      sessions:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            sessionId:
+                              type: string
+                            status:
+                              type: string
+                              example: "Interrupted"
+                            overallScore:
+                              type: number
+                              example: 8.0
+                            "updatedAt":
+                              type: string
+                              format: date-time
+                      pagination:
+                        type: object
+                        properties:
+                          total:
+                            type: integer
+                            example: 25
+                          pageCount:
+                            type: integer
+                            example: 2
+                          offset:
+                            type: integer
+                            example: 0  
+                          limit:
+                            type: integer
+                            example: 10
+                          isLastPage:
+                            type: boolean
+                            example: false
+                  error:
+                    type: object
+                    nullable: true
+    post:
+      summary: Start a mock interview session
+      description: |
+        Start a new mock interview session and receive the first question with SSE.
+
+        **Events:**
+        - `token` Tokens passed when they are generated in the backend.
+        - `done` Signals the completion of the streaming and 
+          provide some important information
+      tags:
+        - "Mock Interview"
+      responses:
+        '201':
+          description: Created
+          content:
+            text/event-stream:
+              schema:
+                type: string
+              examples:
+                tokenEvent:
+                  summary: Token stream event
+                  value: |
+                    event: token
+                    data: "First "
+
+                    event: token
+                    data: "question "
+
+                    event: token
+                    data: "is..."
+
+                doneEvent:
+                  summary: Completion event
+                  value: |
+                    event: done
+                    value: {"sessionId": "sess_123", "nextMessageId": "msg_789" }
+            # application/json:
+            #   schema:
+            #     type: object
+            #     properties:
+            #       success:
+            #         type: boolean
+            #       message:
+            #         type: string
+            #         nullable: true
+            #       data:
+            #         type: object
+            #         properties:
+            #           sessionId:
+            #             type: string
+            #           question:
+            #             type: string
+            #           nextMessageId:
+            #             type: string
+            #       error:
+            #         type: object
+            #         nullable: true
+  /question-bank/questions:
+    get:
+      summary: Get questions (by conditions)
+      tags:
+        - "Question Bank"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                "offset": 
+                  type: integer
+                  description: "Default to 0"
+                  nullable: true
+                  example: 0
+                "limit":
+                  type: integer
+                  description: "Default to 10"
+                  nullable: true
+                  example: 10
+                "query":
+                  type: string
+                  description: Currently support title search only. Would add content search in future
+                  example: "Algorithm"
+                  nullable: true
+                "questionType":
+                  type: string
+                  description: Must be in (Behavioural, Technical, Coding, System Design, Leadership, Product)
+                  nullable: true
+                "difficultyLevel":
+                  type: string
+                  description: Must be in (Easy, Medium, Hard)
+                  nullable: true
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    nullable: true
+                  data:
+                    type: object
+                    properties:
+                    #   "questionType":
+                    #     type: string
+                    #     nullable: true
+                    #   "difficultyLevel": 
+                    #     type: string
+                    #     nullable: true
+                      questions:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            questionId:
+                              type: string
+                            title:
+                              type: string
+                              example: "Bubble Sort Algorithm"
+                            # content:
+                            #   type: string
+                            questionType:
+                              type: string
+                              example: Coding
+                            difficultyLevel:
+                              type: string
+                              example: Medium
+                            "from":
+                              type: string
+                              nullable: true
+                              example: "Microsoft"
+                            # tags:
+                            #   type: array
+                            #   items:
+                            #     type: string
+                            #     nullable: true
+                            #     example: "Algorithm"
+                      pagination:
+                        type: object
+                        properties:
+                            offset:
+                                type: integer
+                                example: 0  
+                            limit:
+                                type: integer
+                                example: 10
+                            pageCount:
+                                type: integer
+                                example: 2
+                            total:
+                                type: integer
+                                example: 25
+                            # isLastPage:
+                            #     type: boolean
+                            #     example: false
+                  error:
+                    type: object
+                    nullable: true
+    post:
+        tags:
+          - "Question Bank"
+        summary: Add a New Question
+        requestBody:
+            content:
+              application/json:
+                schema:
+                    type: object
+                    properties:
+                        title:
+                            type: string
+                            example: Explain Dependency Injection in Spring Boot
+                        content:
+                            type: string
+                            description: No content is needed if it's a short question, 
+                                e.g. the title is enough to explain the question
+                            nullable: true
+                        "questionType":
+                            type: string
+                            description: Must be in (Behavioural, Technical, Coding, System Design, Leadership, Product)
+                            example: Technical
+                        "difficultyLevel":
+                            type: string
+                            description: Must be in (Easy, Medium, Hard)
+                            example: Medium
+                        from:
+                            type: string
+                            description: The name of the company that has asked this question in interviews
+                            nullable: true
+                            example: Apple
+        responses:
+            '200':
+                description: OK
+                content:
+                  application/json:
+                    schema:
+                        type: object
+                        properties:
+                            success:
+                                type: boolean
+                                example: true
+                            message:
+                                type: string
+                                nullable: true
+                            data:
+                                type: object
+                                nullable: true
+                            error: 
+                                type: object
+                                nullable: true
+            '400':
+                description: Illegal Question Types or Difficulty Level
+                content:
+                    application/json:
+                        schema:
+                            type: object
+                            properties:
+                                success:
+                                    type: boolean
+                                message:
+                                    type: string
+                                data:
+                                    type: object
+                                    nullable: true
+                                error: 
+                                    type: object
+                                    nullable: true
+                        examples:
+                            illegalQuestionType:
+                                summary: Invalid Question Type Error
+                                value:
+                                    success: false
+                                    message: Illegal Question Type Provided
+                                    data: null
+                                    error: null
+                            illegalDifficultyLevel:
+                                summary: Invalid Difficulty Level Error
+                                value:
+                                    success: false # Changed from true
+                                    message: Illegal Difficulty Level Provided
+                                    data: null
+                                    error: null
+
+
+  /question-bank/question-types:
+    get:
+      summary: Get all Question Type Information
+      tags:
+        - "Question Bank"
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    nullable: true
+                  data:
+                    type: array
+                    items:
+                        type: object
+                        properties:
+                            id:
+                                type: string
+                            name:
+                                type: string
+                            description:
+                                type: string
+                            questionCount:
+                                type: integer
+                  error:
+                    type: object
+                    nullable: true
+  /settings:
+    get:
+      summary: Get User Settings
+      tags:
+        - "Settings"
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    nullable: true
+                  data:
+                    type: object
+                    properties:
+                      "questionTypes":
+                        type: array
+                        items:
+                          type: string
+                          enum: [Behavioural, Technical, Coding, System Design, Leadership, Product]
+                      "preferredquestionTypes":
+                        type: array
+                        items:
+                          type: string
+                          enum: [Behavioural, Technical]
+                      "difficultyLevels":
+                        type: array
+                        items:
+                          type: string
+                          enum: [Easy, Medium, Hard]
+                      "preferredDifficultyLevel":
+                        type: string
+                        example: "Medium"
+                  error:
+                    type: object
+                    nullable: true
+    patch:
+      summary: Update user settings
+      tags:
+        - "Settings"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                preferredquestionTypes:
+                  type: array
+                  items:
+                    type: string
+                  enum:
+                    - Behavioural
+                    - Technical
+                    - Coding
+                    - System Design
+                    - Leadership
+                    - Product
+                preferredDifficultyLevel:
+                    type: string
+                    example: Medium
+      responses:
+        '200':
+          description: "OK"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    nullable: true
+                  data:
+                    type: object
+                    nullable: true
+                  error:
+                    type: object
+                    nullable: true
+        '400':
+            description: Illegal Arguments
+            content:
+              application/json:
+                schema:
+                    type: object
+                    properties:
+                        success:
+                            type: boolean
+                            example: false
+                        message:
+                            type: string
+                            example: Illegal interview type provided.
+                        data:
+                            type: object
+                            nullable: true
+                        error:
+                            type: object
+                            nullable: true
+        '404':
+          description: User Not Found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  message:
+                    type: string
+                    example: User Not Found
+                  data:
+                    type: object
+                    nullable: true
+                  error:
+                    type: object
+                    nullable: true

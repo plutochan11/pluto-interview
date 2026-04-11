@@ -12,14 +12,6 @@ import java.util.List;
 
 @Mapper(componentModel = MappingConstants.ComponentModel.SPRING, injectionStrategy = InjectionStrategy.CONSTRUCTOR)
 public interface QuestionMapper {
-//	@Mapping(source = "fromCompany", target = "from")
-//	QuestionDto toDto(Question question);
-//
-//	@Mapping(source = "from", target = "fromCompany")
-//	Question toEntity(QuestionDto questionDto);
-//
-//	List<QuestionDto> toDtoList(List<Question> questions);
-
 	default GetQuestionByIdVo toGetQuestionByIdVo(Question question) {
 		if (question == null) {
 			return null;

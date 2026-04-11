@@ -10,6 +10,8 @@ import org.hibernate.annotations.CreationTimestamp;
 import org.springframework.lang.Nullable;
 
 import java.time.Instant;
+import java.util.Arrays;
+import java.util.List;
 
 @Data
 @NoArgsConstructor
@@ -55,12 +57,24 @@ public class Question {
 		CODING,
 		SYSTEM_DESIGN,
 		LEADERSHIP,
-		PRODUCT
+		PRODUCT;
+
+		public static List<String> getQuestionTypes() {
+			return Arrays.stream(QuestionType.values())
+				  .map(QuestionType::toString)
+				  .toList();
+		}
 	}
 
 	public enum DifficultyLevel {
 		EASY,
 		MEDIUM,
-		HARD
+		HARD;
+
+		public static List<String> getDifficultyLevels() {
+			return Arrays.stream(DifficultyLevel.values())
+				  .map(DifficultyLevel::toString)
+				  .toList();
+		}
 	}
 }

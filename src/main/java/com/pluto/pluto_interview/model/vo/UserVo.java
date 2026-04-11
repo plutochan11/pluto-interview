@@ -4,17 +4,16 @@ import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.Builder;
+import lombok.NonNull;
 
-@Builder
 public record UserVo(
-	  @NotNull
+	  @NonNull
 	  Long id,
 
-	  @NotBlank
-	  @Email
+	  @NonNull
 	  String email,
 
-	  @NotBlank
+	  @NonNull
 	  String username
 ) {
 }

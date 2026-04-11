@@ -21,14 +21,9 @@ import java.util.concurrent.TimeoutException;
 @RequiredArgsConstructor
 @RequestMapping("/question-bank")
 public class QuestionBankController {
+
 	private final QuestionBankService questionBankService;
 	private final int SERVICE_TIMEOUT = 30; // seconds
-
-//	@GetMapping("/questions")
-//	public ResponseEntity<Response> getQuestions(@RequestBody QuestionBankDto questionBankDto) {
-//		Response response = questionBankService.getQuestions(questionBankDto);
-//		return ResponseEntity.ok(response);
-//	}
 
 	@GetMapping("/questions")
 	public ResponseEntity<Response> getQuestions(
@@ -37,10 +32,25 @@ public class QuestionBankController {
 		  @RequestParam(name = "query", required = false) String query,
 		  @RequestParam(name = "questionType", required = false) String questionType,
 		  @RequestParam(name = "difficultyLevel", required = false) String difficultyLevel)
-		  throws ExecutionException, InterruptedException, TimeoutException {
+	{
+
 		CompletableFuture<Response> responseCompletableFuture = questionBankService
 			  .getQuestions(offset, limit, query, questionType, difficultyLevel);
-		Response response = responseCompletableFuture.get(SERVICE_TIMEOUT, TimeUnit.SECONDS);
+		Response response = null;
+		try {
+			response = responseCompletableFuture.get(SERVICE_TIMEOUT, TimeUnit.SECONDS);
+		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
+			return ResponseEntity.status(500).body(
+				  Response.error("Service interrupted. Please try again later."));
+		} catch (ExecutionException e) {
+			// Rethrow with cause.
+			throw new RuntimeException(e.getCause());
+		} catch (TimeoutException e) {
+			return ResponseEntity.status(504).body(
+				  Response.error("Timeout. Please try again later."));
+		}
+
 		return ResponseEntity.ok(response);
 	}
 
@@ -57,9 +67,25 @@ public class QuestionBankController {
 	}
 
 	@GetMapping("/questions/{questionId}")
-	public ResponseEntity<Response> getQuestionById(@PathVariable Long questionId) throws ExecutionException, InterruptedException, TimeoutException {
+	public ResponseEntity<Response> getQuestionById(@PathVariable Long questionId) {
+
 		CompletableFuture<Response> responseCompletableFuture = questionBankService.getQuestionById(questionId);
-		Response response = responseCompletableFuture.get(SERVICE_TIMEOUT, TimeUnit.SECONDS);
+
+		Response response = null;
+		try {
+			response = responseCompletableFuture.get(SERVICE_TIMEOUT, TimeUnit.SECONDS);
+		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
+			return ResponseEntity.status(500).body(
+				  Response.error("Service interrupted. Please try again later."));
+		} catch (ExecutionException e) {
+			// Rethrow with cause.
+			throw new RuntimeException(e.getCause());
+		} catch (TimeoutException e) {
+			return ResponseEntity.status(504).body(
+				  Response.error("Timeout. Please try again later."));
+		}
+
 		return ResponseEntity.ok(response);
 	}
 }

@@ -235,24 +235,29 @@ public class ConversationService {
 		return CompletableFuture.completedFuture(Response.ok(vo));
 	}
 
-	public void deleteConversation(@Valid DeleteConversationDto dto, CompletableFuture<Response> responseFuture) {
-		// Fetch the conversation and see if it belongs to the user
-		Long userId = UserIdUtil.getUserId();
-		Conversation conversation = conversationRepo.findById(dto.conversationId())
-			  .orElseThrow(() -> new ConversationNotFoundException(
-				    ErrorMessage.CONVERSATION_NOT_FOUND.getErrorMessage()
-			  ));
-		if (!Objects.equals(userId, conversation.getUser().getId())) {
-			throw new ConversationOwnershipException(
-				  ErrorMessage.NOT_YOUR_CONVERSATION.getErrorMessage()
-			);
+	// TODO Exceptions should be caught by the global exception handler while they are thrown to the console
+	public void deleteConversation(DeleteConversationDto dto, CompletableFuture<Response> responseFuture) {
+		try {
+			// Fetch the conversation and see if it belongs to the user
+			Long userId = UserIdUtil.getUserId();
+			Conversation conversation = conversationRepo.findById(dto.conversationId())
+				  .orElseThrow(() -> new ConversationNotFoundException(
+					    ErrorMessage.CONVERSATION_NOT_FOUND.getErrorMessage()
+				  ));
+			if (!Objects.equals(userId, conversation.getUser().getId())) {
+				throw new ConversationOwnershipException(
+					  ErrorMessage.NOT_YOUR_CONVERSATION.getErrorMessage()
+				);
+			}
+
+			// Delete conversation
+			conversationRepo.delete(conversation);
+
+			// Assemble response and complete future
+			responseFuture.complete(Response.ok());
+		} catch (ConversationNotFoundException | ConversationOwnershipException ex) {
+			responseFuture.completeExceptionally(ex);
 		}
-
-		// Delete conversation
-		conversationRepo.delete(conversation);
-
-		// Assemble response and complete future
-		responseFuture.complete(Response.ok());
 	}
 
 	/**

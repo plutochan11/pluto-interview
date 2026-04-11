@@ -1,23 +1,26 @@
 package com.pluto.pluto_interview.service;
 
+import com.pluto.pluto_interview.config.properties.JwtProperties;
+import com.pluto.pluto_interview.constant.TokenProperty;
 import com.pluto.pluto_interview.enums.ErrorMessage;
-import com.pluto.pluto_interview.event.TokenCreatedEvent;
+import com.pluto.pluto_interview.event.TokensCreatedEvent;
 import com.pluto.pluto_interview.exception.*;
 import com.pluto.pluto_interview.model.Response;
-import com.pluto.pluto_interview.model.Settings;
 import com.pluto.pluto_interview.model.User;
 import com.pluto.pluto_interview.model.dto.AuthenticationRequest;
 import com.pluto.pluto_interview.model.dto.AuthenticationResult;
 import com.pluto.pluto_interview.model.vo.RefreshTokenResult;
 import com.pluto.pluto_interview.repository.UserRepository;
+import com.pluto.pluto_interview.util.IdGenerator;
 import io.jsonwebtoken.Claims;
 import jakarta.validation.ConstraintViolationException;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
+import org.redisson.api.RLock;
+import org.redisson.api.RedissonClient;
 import org.springframework.context.ApplicationEvent;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,7 +29,8 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Date;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
+import java.util.Objects;
+import java.util.concurrent.TimeUnit;
 
 @Service
 @Slf4j
@@ -34,19 +38,26 @@ public class AuthenticationService {
 	private final UserRepository userRepo;
 	private final PasswordEncoder passwordEncoder;
 	private final JwtService jwtService;
+	private final JwtProperties jwtProperties;
 	private final ApplicationEventPublisher appEventPublisher;
 	private final CacheService cacheService;
+	private final RedissonClient redissonClient;
+	private final IdGenerator idGenerator;
 
-	public static final String TOKEN_CACHE_KEY_PREFIX = "token:userId:";
-	public static final String REFRESH_TOKEN_CACHE_KEY_PREFIX = "refreshToken:userId:";
+	private static final String LOCK_NAME_PREFIX = "lock:auth-service:user-id:";
 	public static final String USER_ID_CLAIM_KEY = "userId";
 
-	public AuthenticationService(UserRepository userRepo, PasswordEncoder passwordEncoder, JwtService jwtService, ApplicationEventPublisher appEventPublisher, CacheService cacheService) {
+	public AuthenticationService(UserRepository userRepo, PasswordEncoder passwordEncoder, JwtService jwtService,
+	                             JwtProperties jwtProperties, ApplicationEventPublisher appEventPublisher,
+	                             CacheService cacheService, RedissonClient redissonClient, IdGenerator idGenerator) {
 		this.userRepo = userRepo;
 		this.passwordEncoder = passwordEncoder;
 		this.jwtService = jwtService;
+		this.jwtProperties = jwtProperties;
 		this.appEventPublisher = appEventPublisher;
 		this.cacheService = cacheService;
+		this.redissonClient = redissonClient;
+		this.idGenerator = idGenerator;
 	}
 
 	/**
@@ -55,6 +66,7 @@ public class AuthenticationService {
 	 * @return A {@link Response} containing authentication tokens.
 	 * @throws EmailAlreadyRegisteredException if the email is already registered.
 	 */
+	@Transactional
 	public Response register(AuthenticationRequest authRequest) {
 		// Check the presence of the email
 		String email = authRequest.email();
@@ -68,26 +80,25 @@ public class AuthenticationService {
 		// The username defaults to the domain part of the register email.
 		String username = email.substring(0, email.indexOf("@"));
 		String password = passwordEncoder.encode(authRequest.password());
-		User user = User.newUser(email, password, username);
+		User user = User.newUser(idGenerator.nextId(), email, password, username);
 
-		User savedUser = null;
+		User savedUser;
 		try {
 			savedUser = userRepo.save(user);
 			// Throw an exception if the unique constraint is violated (rarely happens under high concurrency)
 		} catch (DataIntegrityViolationException | ConstraintViolationException e){
 			throw new EmailRegisteredException(ErrorMessage.EMAIL_REGISTERED.getErrorMessage());
 		}
+		Long savedUserId = Objects.requireNonNull(savedUser.getId(), "Saved user ID cannot be null.");
 
 		// Create JWT token and refresh token
-		Map<String, Object> claims = Map.of(USER_ID_CLAIM_KEY, user.getId());
+		Map<String, Object> claims = Map.of(USER_ID_CLAIM_KEY, savedUserId);
 		String token = jwtService.generate(claims, null, null);
 		String refreshToken = jwtService.generateRefreshToken(claims);
 
 		// Publish events with the created tokens
-		String tokenCacheKey = TOKEN_CACHE_KEY_PREFIX + user.getId();
-		String refreshTokenCacheKey = REFRESH_TOKEN_CACHE_KEY_PREFIX + user.getId();
-		appEventPublisher.publishEvent(new TokenCreatedEvent(this, token, tokenCacheKey));
-		appEventPublisher.publishEvent(new TokenCreatedEvent(this, refreshToken, refreshTokenCacheKey));
+		appEventPublisher.publishEvent(new TokensCreatedEvent(this, token, getAccessTokenTtlSeconds(),
+			  refreshToken, getRefreshTokenTtlSeconds(), savedUserId));
 
 		// Publish events with the created user
 		appEventPublisher.publishEvent(new UserCreatedEvent(this, savedUser));
@@ -95,67 +106,83 @@ public class AuthenticationService {
 		// Create VO
 		AuthenticationResult authResult = new AuthenticationResult(user.getUsername(), token, refreshToken);
 
-		log.info("New user registered (ID: {})", savedUser.getId());
+		log.info("New user registered (ID: {})", savedUserId);
 		return Response.ok(authResult);
 	}
 
-	@Async
-	@Transactional
-	public CompletableFuture<Response> login(AuthenticationRequest credential) {
-		// Verify user credentials
-		User registeredUser = userRepo.findByEmail(credential.email())
-			  .orElseThrow(() ->
-			      new EmailNotRegisteredException(ErrorMessage.EMAIL_NOT_REGISTERED.getErrorMessage()));
-		if (!passwordEncoder.matches(credential.password(), registeredUser.getPassword())) {
-			throw new WrongPasswordException(ErrorMessage.WRONG_PASSWORD.getErrorMessage(), credential.email());
+	public Response login(AuthenticationRequest authRequest) {
+		// Verify user's presence
+		User user = getUser(authRequest);
+
+		//  Check user's login status to avoid multiple logins
+		if (isLoggedIn(user.getId())) {
+			throw new UserAlreadyLoggedInException(ErrorMessage.ALREADY_LOGGED_IN.getErrorMessage());
 		}
 
-		// Create JWT token and refresh token
-		Map<String, Object> claims = Map.of(USER_ID_CLAIM_KEY, registeredUser.getId());
-		String token = jwtService.generate(claims, null, null);
-		String refreshToken = jwtService.generateRefreshToken(claims);
+		// Verify password correctness
+		if (!passwordEncoder.matches(authRequest.password(), user.getPassword())) {
+			// If incorrect, throw an exception
+			throw new WrongPasswordException(ErrorMessage.WRONG_PASSWORD.getErrorMessage(), authRequest.email());
+		}
 
-		// Publish event
-		String tokenCacheKey = TOKEN_CACHE_KEY_PREFIX + registeredUser.getId();
-		String refreshTokenCacheKey = REFRESH_TOKEN_CACHE_KEY_PREFIX + registeredUser.getId();
-		appEventPublisher.publishEvent(new TokenCreatedEvent(this, token, tokenCacheKey));
-		appEventPublisher.publishEvent(new TokenCreatedEvent(this, refreshToken, refreshTokenCacheKey));
+		// Acquire lock to avoid multiple logins
+//		Lock lock = new SimpleRedisLock(stringRedisTemplate);
+		RLock lock = redissonClient.getLock(LOCK_NAME_PREFIX + user.getId());
+		try {
+			if (!lock.tryLock(3, TimeUnit.SECONDS)) {
+				throw new LockTimeoutException(ErrorMessage.TIMEOUT.getErrorMessage());
+			}
+		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
+			throw new UnknownTokenException(e);
+		}
 
-		// Create VO, log and complete future
-		AuthenticationResult authenticationResult = new AuthenticationResult(registeredUser.getUsername(), token, refreshToken);
+		String token;
+		String refreshToken;
+		try {
+			// Create JWT token and refresh token
+			Map<String, String> tokens = generateTokenAndRefreshToken(user.getId());
+			token = tokens.get("token");
+			refreshToken = tokens.get("refreshToken");
+			// Publish events with the created tokens
+			appEventPublisher.publishEvent(new TokensCreatedEvent(this, token, getAccessTokenTtlSeconds(),
+				  refreshToken, getRefreshTokenTtlSeconds(), user.getId()));
 
-		log.info("User(ID: {}) logged in", registeredUser.getId());
-		return CompletableFuture.completedFuture(Response.ok(authenticationResult));
+			// Publish events with the logged in user
+			appEventPublisher.publishEvent(new UserLoggedInEvent(this, user));
+		} finally {
+			lock.unlock();
+		}
+
+		// Create VO
+		AuthenticationResult authResult = new AuthenticationResult(user.getUsername(), token, refreshToken);
+
+		log.info("User(ID: {}) logged in", user.getId());
+		return Response.ok(authResult);
 	}
 
-	public Response logout(String token) {
-		// Invalidate tokens
-		Claims claims = jwtService.parse(token);
-		Long userId = claims.get(USER_ID_CLAIM_KEY, Long.class);
-		String tokenKey = TOKEN_CACHE_KEY_PREFIX + userId;
-		String refreshTokenKey = REFRESH_TOKEN_CACHE_KEY_PREFIX + userId;
-		cacheService.delete(tokenKey);
-		cacheService.delete(refreshTokenKey);
-
+	public void logout(Long userId) {
+		appEventPublisher.publishEvent(new UserLoggedOutEvent(userId));
 		log.info("User(ID: {}) logged out", userId);
-		return Response.ok();
 	}
 
 	/**
 	 * Generate a new JWT token based on the {@code refreshToken}
-	 * @param refreshToken The refresh token used to generate a new JWT token
 	 * @return A {@link Response} containing a {@link RefreshTokenResult} with the new JWT token.
 	 */
 	public Response refreshToken(String refreshToken) {
 		// Validate the refresh token
 		Claims refreshTokenClaims = jwtService.parse(refreshToken);
 		Long userId = refreshTokenClaims.get(USER_ID_CLAIM_KEY, Long.class);
-		String key = REFRESH_TOKEN_CACHE_KEY_PREFIX + userId;
-		String storedRefreshToken = cacheService.get(key);
+		String key = TokenProperty.REFRESH_TOKEN_KEY_PREFIX + userId;
+		String storedRefreshToken = cacheService.getString(key);
 
 		if (storedRefreshToken == null || !storedRefreshToken.equals(refreshToken)) {
 			throw new UserNotLoggedInException(ErrorMessage.NOT_LOGGED_IN.getErrorMessage());
 		}
+
+//		// Get refresh token from the cache
+//		String refreshToken = stringRedisTemplate.opsForValue().get(key);
 
 		// Create a new JWT token
 		Map<String, Object> claims = Map.of(USER_ID_CLAIM_KEY, userId);
@@ -164,9 +191,21 @@ public class AuthenticationService {
 		// Create new refresh token if about to expire (e.g. less than 1 day)
 		String newRefreshToken = null;
 		Date expiry = jwtService.getExpiry(refreshToken);
-		if (Duration.between(Instant.now(), expiry.toInstant()).toDays() < 1) {
+		Duration remainingRefreshTokenTtl = Duration.between(Instant.now(), expiry.toInstant());
+		if (remainingRefreshTokenTtl.toDays() < 1) {
 			newRefreshToken = jwtService.generateRefreshToken(claims);
+			remainingRefreshTokenTtl = jwtProperties.getRefreshTokenTtl();
 		}
+
+		String refreshTokenToCache = newRefreshToken != null ? newRefreshToken : refreshToken;
+		appEventPublisher.publishEvent(new TokensCreatedEvent(
+			  this,
+			  newToken,
+			  getAccessTokenTtlSeconds(),
+			  refreshTokenToCache,
+			  Math.max(1, remainingRefreshTokenTtl.toSeconds()),
+			  userId
+		));
 
 		RefreshTokenResult result = new RefreshTokenResult(newToken, newRefreshToken);
 
@@ -177,12 +216,58 @@ public class AuthenticationService {
 	}
 
 	@Getter
-	public static class UserCreatedEvent extends ApplicationEvent {
+	public static abstract class UserEvent extends ApplicationEvent {
 		private final User user;
 
-		public UserCreatedEvent(Object source, User user) {
+		public UserEvent(Object source, User user) {
 			super(source);
 			this.user = user;
 		}
+	}
+
+	public static class UserCreatedEvent extends UserEvent {
+		public UserCreatedEvent(Object source, User user) {
+			super(source, user);
+		}
+	}
+
+	public static class UserLoggedInEvent extends UserEvent {
+		public UserLoggedInEvent(Object source, User user) {
+			super(source, user);
+		}
+	}
+
+	public record UserLoggedOutEvent (Long userid) {}
+
+	private boolean isLoggedIn(Long userId) {
+		String key = TokenProperty.TOKEN_KEY_PREFIX + userId;
+		return cacheService.containsKey(key);
+	}
+
+	private User getUser(AuthenticationRequest authRequest) {
+		return userRepo.findByEmail(authRequest.email())
+			  // If absent, throw an exception
+			  .orElseThrow(() ->
+				    new EmailNotRegisteredException(ErrorMessage.EMAIL_NOT_REGISTERED.getErrorMessage()));
+	}
+
+	/**
+	 * Generate JWT token and refresh token
+	 * @return A {@link Map} containing the generated tokens. The token is under the key "token" and
+	 * the refresh token is under the key "refresh
+	 */
+	private Map<String, String> generateTokenAndRefreshToken(Long userId) {
+		Map<String, Object> claims = Map.of(USER_ID_CLAIM_KEY, userId);
+		String token = jwtService.generate(claims, null, null);
+		String refreshToken = jwtService.generateRefreshToken(claims);
+		return Map.of("token", token, "refreshToken", refreshToken);
+	}
+
+	private long getAccessTokenTtlSeconds() {
+		return Duration.of(jwtProperties.getTtl(), jwtProperties.getTimeUnit().toChronoUnit()).toSeconds();
+	}
+
+	private long getRefreshTokenTtlSeconds() {
+		return jwtProperties.getRefreshTokenTtl().toSeconds();
 	}
 }

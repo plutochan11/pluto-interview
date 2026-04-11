@@ -21,6 +21,33 @@ import java.util.concurrent.TimeoutException;
 @Order(Ordered.HIGHEST_PRECEDENCE)
 @Slf4j
 public class GlobalExceptionHandler {
+	@ExceptionHandler(ConversationOwnershipException.class)
+	public ResponseEntity<Response> handleConversationOwnershipException(
+		  ConversationOwnershipException e) {
+		Response response = Response.error(e.getMessage());
+		return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
+	}
+
+	@ExceptionHandler(ConversationNotFoundException.class)
+	public ResponseEntity<Response> handleConversationNotFoundException(
+		  ConversationNotFoundException e) {
+		Response response = Response.error(e.getMessage());
+		return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+	}
+
+	@ExceptionHandler(UserAlreadyLoggedInException.class)
+	public ResponseEntity<Response> handleUserAlreadyLoggedInException(
+		  UserAlreadyLoggedInException e) {
+		Response response = Response.error(e.getMessage());
+		return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
+	}
+
+	@ExceptionHandler(LockTimeoutException.class)
+	public ResponseEntity<Response> handleLockTimeoutException(LockTimeoutException e) {
+		Response response = Response.error(e.getMessage());
+		return ResponseEntity.status(HttpStatus.REQUEST_TIMEOUT).body(response);
+	}
+
 	@ExceptionHandler(EmailRegisteredException.class)
 	public ResponseEntity<Response> handleEmailRegisteredException(EmailRegisteredException e) {
 		Response response = Response.error(e.getMessage());
@@ -82,7 +109,7 @@ public class GlobalExceptionHandler {
 		}
 
 		Response response = Response.error(errorMessage);
-		log.info("{} passed illegal argument(s) at {}", userInfo, request.getRequestURI());
+		log.info("{} passed illegal argument(s) at {}", userInfo, request.getRequestURI(), ex);
 		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
 	}
 

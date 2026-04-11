@@ -8,6 +8,7 @@ import com.pluto.pluto_interview.exception.MockInterviewSessionOwnershipExceptio
 import com.pluto.pluto_interview.exception.UserNotFoundException;
 import com.pluto.pluto_interview.handler.SseEmitterHandler;
 import com.pluto.pluto_interview.mapper.MockInterviewResultMapper;
+import com.pluto.pluto_interview.mapper.QuestionTypeMapper;
 import com.pluto.pluto_interview.model.*;
 import com.pluto.pluto_interview.model.dto.*;
 import com.pluto.pluto_interview.model.vo.*;
@@ -89,7 +90,7 @@ public class MockInterviewService {
 			  .orElseThrow(() -> new UserNotFoundException(ErrorMessage.USER_NOT_FOUND.getErrorMessage()));
 
 		Settings settings = user.getSettings();
-		List<Question.QuestionType> preferredQuestionTypes = settings.getPreferredQuestionTypes();
+		List<String> preferredQuestionTypes = QuestionTypeMapper.toStringList(settings.getPreferredQuestionTypes());
 		Question.DifficultyLevel preferredDifficultyLevel = settings.getPreferredDifficultyLevel();
 
 		// Get relevant questions

@@ -2,6 +2,7 @@ package com.pluto.pluto_interview.config;
 
 import com.pluto.pluto_interview.filter.JwtFilter;
 import com.pluto.pluto_interview.filter.RateLimitingFilter;
+import jakarta.servlet.DispatcherType;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.Customizer;
@@ -34,7 +35,8 @@ public class SecurityConfig {
 				    .frameOptions(frame -> frame.deny())
 				    .httpStrictTransportSecurity(Customizer.withDefaults()))
 			  .authorizeHttpRequests(requests ->
-				    requests.requestMatchers("/auth/**").permitAll()
+				    requests.requestMatchers("/auth/register", "/auth/login", "/auth/refresh-token").permitAll()
+					      .dispatcherTypeMatchers(DispatcherType.ASYNC).permitAll()
 					      .anyRequest().authenticated())
 			  .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
 			  .addFilterBefore(rateLimitingFilter, JwtFilter.class)

@@ -1,13 +1,13 @@
 package com.pluto.pluto_interview.filter;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.pluto.pluto_interview.constant.TokenProperty;
 import com.pluto.pluto_interview.enums.ErrorMessage;
 import com.pluto.pluto_interview.exception.IllegalTokenException;
 import com.pluto.pluto_interview.exception.UserNotFoundException;
 import com.pluto.pluto_interview.exception.UserNotLoggedInException;
 import com.pluto.pluto_interview.model.Response;
 import com.pluto.pluto_interview.repository.UserRepository;
-import com.pluto.pluto_interview.service.AuthenticationService;
 import com.pluto.pluto_interview.service.CacheService;
 import com.pluto.pluto_interview.service.JwtService;
 import io.jsonwebtoken.Claims;
@@ -16,7 +16,6 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
 import org.springframework.http.MediaType;
@@ -32,31 +31,34 @@ import java.io.IOException;
 import java.util.Collections;
 
 @Component
-@RequiredArgsConstructor
 @Slf4j
 public class JwtFilter extends OncePerRequestFilter {
+	private static final AntPathMatcher pathMatcher = new AntPathMatcher();
+
 	private final JwtService jwtService;
-	private final AntPathMatcher pathMatcher = new AntPathMatcher();
 	private final ObjectMapper objectMapper;
 	private final UserRepository userRepository;
 	private final CacheService cacheService;
 
+	public JwtFilter(JwtService jwtService, ObjectMapper objectMapper, UserRepository userRepository, CacheService cacheService) {
+		this.jwtService = jwtService;
+		this.objectMapper = objectMapper;
+		this.userRepository = userRepository;
+		this.cacheService = cacheService;
+	}
+
 	@Override
-	protected boolean shouldNotFilter(HttpServletRequest request) throws ServletException {
-		return pathMatcher.match("/auth/**", request.getServletPath());
+	protected boolean shouldNotFilter(HttpServletRequest request) {
+		return pathMatcher.match("/auth/register", request.getServletPath()) ||
+			  pathMatcher.match("/auth/login", request.getServletPath()) ||
+			  pathMatcher.match("/auth/refresh-token", request.getServletPath());
 	}
 
 	@Override
 	protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
 	                                FilterChain filterChain) throws ServletException, IOException {
-		// Check whether the request has been authenticated
-		Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-		if (authentication != null && authentication.isAuthenticated()) {
-			filterChain.doFilter(request, response);
-			return;
-		}
+		if (isAuthenticated(request, response, filterChain)) return;
 
-		// Extract JWT token
 		String jwt = getJwt(request);
 
 		// Validate token's presence
@@ -70,8 +72,13 @@ public class JwtFilter extends OncePerRequestFilter {
 			return;
 		}
 
-		// Extract user ID and handle expired token
-		Claims claims = null;
+		storeUserId(request, response, jwt);
+
+		filterChain.doFilter(request, response);
+	}
+
+	private void storeUserId(HttpServletRequest request, HttpServletResponse response, String jwt) throws IOException {
+		Claims claims;
 		try {
 			claims = jwtService.parse(jwt);
 			if (claims == null || claims.get("userId") == null) {
@@ -80,8 +87,9 @@ public class JwtFilter extends OncePerRequestFilter {
 			Long userId = claims.get("userId", Long.class);
 
 			// Validate the token
-			String key = AuthenticationService.TOKEN_CACHE_KEY_PREFIX + userId;
-			if (!cacheService.containsKey(key)) {
+			String key = TokenProperty.TOKEN_KEY_PREFIX + userId;
+			String storedToken = cacheService.getString(key);
+			if (storedToken == null || !storedToken.equals(jwt)) {
 				throw new UserNotLoggedInException(ErrorMessage.NOT_LOGGED_IN.getErrorMessage());
 			}
 
@@ -94,17 +102,26 @@ public class JwtFilter extends OncePerRequestFilter {
 				  new UsernamePasswordAuthenticationToken(userId, null, Collections.emptyList());
 			auth.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
 			SecurityContextHolder.getContext().setAuthentication(auth);
-
-			filterChain.doFilter(request, response);
 		} catch (ExpiredJwtException e) {
 			Response error = Response.error(ErrorMessage.NOT_LOGGED_IN.getErrorMessage());
 			response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
 			response.setContentType(MediaType.APPLICATION_JSON_VALUE);
 			response.getWriter().write(objectMapper.writeValueAsString(error));
+
 			log.info("An user tried to access protected resource with expired token from IP: {}",
 				  request.getRemoteAddr());
-		}
 
+			throw new RuntimeException(e);
+		}
+	}
+
+	private static boolean isAuthenticated(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws IOException, ServletException {
+		Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+		if (authentication != null && authentication.isAuthenticated()) {
+			filterChain.doFilter(request, response);
+			return true;
+		}
+		return false;
 	}
 
 	private @Nullable String getJwt(HttpServletRequest request){
