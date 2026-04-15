@@ -1,11 +1,8 @@
 package com.pluto.pluto_interview.controller;
 
-import com.pluto.pluto_interview.model.Question;
 import com.pluto.pluto_interview.model.Response;
-import com.pluto.pluto_interview.model.dto.QuestionBankDto;
 import com.pluto.pluto_interview.model.dto.QuestionDto;
 import com.pluto.pluto_interview.service.QuestionBankService;
-import com.pluto.pluto_interview.util.UserIdUtil;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;

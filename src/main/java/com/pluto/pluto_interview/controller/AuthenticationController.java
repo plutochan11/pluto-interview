@@ -27,6 +27,7 @@ public class AuthenticationController {
 		Executor executor,
 	    @Value("${service.auth.timeout}") Duration serviceTimeout) 
 	{
+
 		this.authService = authService;
 		this.executor = executor;
 
@@ -70,12 +71,11 @@ public class AuthenticationController {
 
 	@PatchMapping("/logout")
 	public ResponseEntity<Response> logout() {
-		Long userId = 
-			(Long) SecurityContextHolder.getContext()
+
+		Long userId = (Long) SecurityContextHolder.getContext()
 				.getAuthentication()
 				.getPrincipal();
-		CompletableFuture.runAsync(() -> authService.logout(userId), executor)
-			  .orTimeout(SERVICE_TIMEOUT.toSeconds(), TIMEOUT_UNIT);
+		authService.logout(userId);
 		return ResponseEntity.ok(Response.ok());
 	}
 }

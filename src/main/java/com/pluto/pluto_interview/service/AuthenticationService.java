@@ -162,6 +162,8 @@ public class AuthenticationService {
 	}
 
 	public void logout(Long userId) {
+
+		// Publish a UserLoggedOutEvent to have relevant parties handle logout synchronously.
 		appEventPublisher.publishEvent(new UserLoggedOutEvent(userId));
 		log.info("User(ID: {}) logged out", userId);
 	}

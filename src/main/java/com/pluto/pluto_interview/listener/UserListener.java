@@ -15,7 +15,6 @@ import org.springframework.stereotype.Component;
 
 import java.time.Duration;
 import java.util.List;
-import java.util.Map;
 
 @Component
 public class UserListener {
@@ -72,17 +71,21 @@ public class UserListener {
 	@EventListener(AuthenticationService.UserLoggedOutEvent.class)
 	public void evictLoggedOutUserCache(AuthenticationService.UserLoggedOutEvent event) {
 		Long userId = event.userid();
-		evict(userId);
+		evictUserInfo(userId);
 	}
 
 	@Async
 	@EventListener(UserService.UserDeletedEvent.class)
 	public void evictDeletedUserCache(UserService.UserDeletedEvent event) {
 		Long userId = event.userId();
-		evict(userId);
+		evictUserInfo(userId);
 	}
 
-	private void evict(Long userId) {
+	/**
+	 * Evict user information stored in cache.
+	 * @param userId Used to compose of the key of user info.
+	 */
+	private void evictUserInfo(Long userId) {
 		String key = CACHE_KEY_PREFIX + userId;
 		stringRedisTemplate.delete(key);
 	}

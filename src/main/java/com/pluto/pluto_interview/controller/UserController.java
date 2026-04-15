@@ -20,21 +20,42 @@ public class UserController {
 	private final TimeUnit SERVICE_TIMEOUT_UNIT = TimeUnit.SECONDS;
 	private final Executor executor;
 
-	public UserController(UserService userService, @Value("${service.user.timeout:20s}") Duration serviceTimeout, Executor executor) {
+	public UserController(
+		  UserService userService,
+		  @Value("${service.user.timeout:20s}") Duration serviceTimeout,
+		  Executor executor) {
+
 		this.userService = userService;
 		SERVICE_TIMEOUT = serviceTimeout;
 		this.executor = executor;
 	}
 
 	@GetMapping
-	public ResponseEntity<Response> getUser() throws ExecutionException, InterruptedException, TimeoutException {
+	public ResponseEntity<Response> get() {
+
 		CompletableFuture<Response> responseCompletableFuture = userService.getUser();
-		Response response = responseCompletableFuture.get(SERVICE_TIMEOUT.toSeconds(), TimeUnit.SECONDS);
+
+		Response response = null;
+		try {
+			response = responseCompletableFuture.get(SERVICE_TIMEOUT.toSeconds(), TimeUnit.SECONDS);
+		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
+			return ResponseEntity.status(500).body(
+				  Response.error("Service interrupted. Please try again later."));
+		} catch (ExecutionException e) {
+			// Rethrow with cause.
+			throw new RuntimeException(e.getCause());
+		} catch (TimeoutException e) {
+			return ResponseEntity.status(504).body(
+				  Response.error("Timeout. Please try again later."));
+		}
+
 		return ResponseEntity.ok(response);
 	}
 
 	@DeleteMapping
-	public CompletableFuture<ResponseEntity<Response>> deleteUser() {
+	public CompletableFuture<ResponseEntity<Response>> delete() {
+
 		return CompletableFuture.supplyAsync(userService::deleteUser, executor)
 			  .thenApply(ResponseEntity::ok)
 			  .orTimeout(SERVICE_TIMEOUT.toSeconds(), SERVICE_TIMEOUT_UNIT);

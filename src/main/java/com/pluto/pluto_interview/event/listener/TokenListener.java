@@ -48,17 +48,22 @@ public class TokenListener {
 	@EventListener(AuthenticationService.UserLoggedOutEvent.class)
 	public void evictTokenCache(AuthenticationService.UserLoggedOutEvent event) {
 		Long userId = event.userid();
-		evict(userId);
+		evictTokenAndRefreshToken(userId);
 	}
 
 	@Async
 	@EventListener(UserService.UserDeletedEvent.class)
 	public void evictTokenCache(UserService.UserDeletedEvent event) {
 		Long userId = event.userId();
-		evict(userId);
+		evictTokenAndRefreshToken(userId);
 	}
 
-	private void evict(Long userId) {
+	/**
+	 * Evict token and refresh token cache.
+	 * @param userId Used to compose of keys token and refresh token so that
+	 *                    they can be evicted from cache.
+	 */
+	private void evictTokenAndRefreshToken(Long userId) {
 		String tokenKey = TokenProperty.TOKEN_KEY_PREFIX + userId;
 		String refreshTokenKey = TokenProperty.REFRESH_TOKEN_KEY_PREFIX + userId;
 
