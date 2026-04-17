@@ -5,6 +5,7 @@ import io.github.bucket4j.Bandwidth;
 import io.github.bucket4j.Bucket;
 import jakarta.servlet.*;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 
@@ -15,14 +16,19 @@ import java.time.Duration;
 public class RateLimitingFilter implements Filter {
 	private final Bucket bucket;
 
-	public RateLimitingFilter() {
+	public RateLimitingFilter(
+		  @Value("${rate-limiting.capacity}") long capacity,
+		  @Value("${rate-limiting.refill-amount}") long refillAmount,
+		  @Value("${rate-limiting.refill-period}") Duration refillPeriod
+	) {
+
 		Bandwidth limit = Bandwidth.builder()
-			  .capacity(10)
-			  .refillGreedy(10, Duration.ofMinutes(1))
-			  .build();
+			                     .capacity(capacity)
+			                     .refillGreedy(refillAmount, refillPeriod)
+			                     .build();
 		this.bucket = Bucket.builder()
-			  .addLimit(limit)
-			  .build();
+			              .addLimit(limit)
+			              .build();
 	}
 
 	@Override

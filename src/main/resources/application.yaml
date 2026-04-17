@@ -11,18 +11,10 @@ spring:
         concurrency:
             response-handling:
                 enabled: true
+    jpa:
+        hibernate:
+            ddl-auto: validate
 
-thread-pool:
-    core-pool-size: 8
-    max-pool-size: 16
-    queue-capacity: 100
-    keep-alive-seconds: 120
-
-jwt:
-    secret: ${PLUTO_INTERVIEW_JWT_SECRET}
-    issuer: Pluto Interview
-    refreshTokenTtl: 7d
-    
 langchain4j:
     community:
         dashscope:
@@ -35,6 +27,17 @@ langchain4j:
             embedding-model:
                 api-key: ${DASHSCOPE_API_KEY}
                 model-name: text-embedding-v4
+
+thread-pool:
+    core-pool-size: 8
+    max-pool-size: 16
+    queue-capacity: 100
+    keep-alive-seconds: 120
+
+jwt:
+    secret: ${PLUTO_INTERVIEW_JWT_SECRET}
+    issuer: Pluto Interview
+    refreshTokenTtl: 7d
             
 service:
     auth:
@@ -47,3 +50,16 @@ pgvector:
     password: ${POSTGRES_PASSWORD}
     database: pluto_interview
     table: interview_question_embeddings
+    
+app:
+    cors:
+        allowed-origins: "http://interview.pluto.com"
+        
+#security:
+#    cors:
+#        allowed-origins: "*"
+
+rate-limiting:
+    capacity: 100
+    refill-amount: 100
+    refill-period: 1m
