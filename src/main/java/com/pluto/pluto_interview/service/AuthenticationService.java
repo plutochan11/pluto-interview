@@ -2,6 +2,9 @@ package com.pluto.pluto_interview.service;
 
 import com.pluto.pluto_interview.config.properties.JwtProperties;
 import com.pluto.pluto_interview.constant.TokenProperty;
+import com.pluto.pluto_interview.event.UserCreatedEvent;
+import com.pluto.pluto_interview.event.UserLoggedInEvent;
+import com.pluto.pluto_interview.event.UserLoggedOutEvent;
 import com.pluto.pluto_interview.enums.ErrorMessage;
 import com.pluto.pluto_interview.event.TokensCreatedEvent;
 import com.pluto.pluto_interview.exception.*;
@@ -14,11 +17,9 @@ import com.pluto.pluto_interview.repository.UserRepository;
 import com.pluto.pluto_interview.util.IdGenerator;
 import io.jsonwebtoken.Claims;
 import jakarta.validation.ConstraintViolationException;
-import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
-import org.springframework.context.ApplicationEvent;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -164,7 +165,7 @@ public class AuthenticationService {
 	public void logout(Long userId) {
 
 		// Publish a UserLoggedOutEvent to have relevant parties handle logout synchronously.
-		appEventPublisher.publishEvent(new UserLoggedOutEvent(userId));
+		appEventPublisher.publishEvent(new UserLoggedOutEvent(this, userId));
 		log.info("User(ID: {}) logged out", userId);
 	}
 
@@ -216,30 +217,6 @@ public class AuthenticationService {
 
 		return Response.ok(result);
 	}
-
-	@Getter
-	public static abstract class UserEvent extends ApplicationEvent {
-		private final User user;
-
-		public UserEvent(Object source, User user) {
-			super(source);
-			this.user = user;
-		}
-	}
-
-	public static class UserCreatedEvent extends UserEvent {
-		public UserCreatedEvent(Object source, User user) {
-			super(source, user);
-		}
-	}
-
-	public static class UserLoggedInEvent extends UserEvent {
-		public UserLoggedInEvent(Object source, User user) {
-			super(source, user);
-		}
-	}
-
-	public record UserLoggedOutEvent (Long userid) {}
 
 	private boolean isLoggedIn(Long userId) {
 		String key = TokenProperty.TOKEN_KEY_PREFIX + userId;

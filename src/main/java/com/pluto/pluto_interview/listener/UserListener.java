@@ -1,9 +1,12 @@
 package com.pluto.pluto_interview.listener;
 
 import com.pluto.pluto_interview.mapper.UserMapper;
+import com.pluto.pluto_interview.event.UserCreatedEvent;
+import com.pluto.pluto_interview.event.UserEvent;
+import com.pluto.pluto_interview.event.UserLoggedInEvent;
+import com.pluto.pluto_interview.event.UserLoggedOutEvent;
 import com.pluto.pluto_interview.model.Settings;
 import com.pluto.pluto_interview.model.User;
-import com.pluto.pluto_interview.service.AuthenticationService;
 import com.pluto.pluto_interview.service.UserService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.event.EventListener;
@@ -39,8 +42,8 @@ public class UserListener {
 	 * Cache user on creation or login
 	 * @throws IllegalArgumentException if user ID is null or user settings are null
 	 */
-	@EventListener(classes = {AuthenticationService.UserCreatedEvent.class, AuthenticationService.UserLoggedInEvent.class})
-	public void cacheUser(AuthenticationService.UserEvent event) {
+	@EventListener(classes = {UserCreatedEvent.class, UserLoggedInEvent.class})
+	public void cacheUser(UserEvent event) {
 		User user = event.getUser();
 		Long userId = user.getId();
 
@@ -68,9 +71,9 @@ public class UserListener {
 	}
 
 	@Async
-	@EventListener(AuthenticationService.UserLoggedOutEvent.class)
-	public void evictLoggedOutUserCache(AuthenticationService.UserLoggedOutEvent event) {
-		Long userId = event.userid();
+	@EventListener(UserLoggedOutEvent.class)
+	public void evictLoggedOutUserCache(UserLoggedOutEvent event) {
+		Long userId = event.getUserId();
 		evictUserInfo(userId);
 	}
 

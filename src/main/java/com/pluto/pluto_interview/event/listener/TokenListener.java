@@ -2,7 +2,7 @@ package com.pluto.pluto_interview.event.listener;
 
 import com.pluto.pluto_interview.constant.TokenProperty;
 import com.pluto.pluto_interview.event.TokensCreatedEvent;
-import com.pluto.pluto_interview.service.AuthenticationService;
+import com.pluto.pluto_interview.event.UserLoggedOutEvent;
 import com.pluto.pluto_interview.service.UserService;
 import org.springframework.context.event.EventListener;
 import org.springframework.core.io.ClassPathResource;
@@ -45,17 +45,15 @@ public class TokenListener {
 	}
 
 	@Async
-	@EventListener(AuthenticationService.UserLoggedOutEvent.class)
-	public void evictTokenCache(AuthenticationService.UserLoggedOutEvent event) {
-		Long userId = event.userid();
-		evictTokenAndRefreshToken(userId);
+	@EventListener(UserLoggedOutEvent.class)
+	public void onLoggedOut(UserLoggedOutEvent event) {
+		evictTokenAndRefreshToken(event.getUserId());
 	}
 
 	@Async
 	@EventListener(UserService.UserDeletedEvent.class)
-	public void evictTokenCache(UserService.UserDeletedEvent event) {
-		Long userId = event.userId();
-		evictTokenAndRefreshToken(userId);
+	public void onDeleted(UserService.UserDeletedEvent event) {
+		evictTokenAndRefreshToken(event.userId());
 	}
 
 	/**
