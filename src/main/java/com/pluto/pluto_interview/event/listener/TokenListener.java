@@ -1,6 +1,6 @@
 package com.pluto.pluto_interview.event.listener;
 
-import com.pluto.pluto_interview.constant.TokenProperty;
+import com.pluto.pluto_interview.constant.RedisKeyPrefixes;
 import com.pluto.pluto_interview.event.TokensCreatedEvent;
 import com.pluto.pluto_interview.event.UserLoggedOutEvent;
 import com.pluto.pluto_interview.service.UserService;
@@ -37,8 +37,8 @@ public class TokenListener {
 		Long userId = event.getUserId();
 
 		// Cache token and refresh token
-		String tokenKey = TokenProperty.TOKEN_KEY_PREFIX + userId;
-		String refreshTokenKey = TokenProperty.REFRESH_TOKEN_KEY_PREFIX + userId;
+		String tokenKey = RedisKeyPrefixes.TOKEN_KEY_PREFIX + userId;
+		String refreshTokenKey = RedisKeyPrefixes.REFRESH_TOKEN_KEY_PREFIX + userId;
 		stringRedisTemplate.execute(setTokenAndRefreshTokenScript, List.of(tokenKey, refreshTokenKey),
 			  event.getToken(), String.valueOf(event.getTokenTtlSeconds()), event.getRefreshToken(),
 			  String.valueOf(event.getRefreshTokenTtlSeconds()));
@@ -62,8 +62,8 @@ public class TokenListener {
 	 *                    they can be evicted from cache.
 	 */
 	private void evictTokenAndRefreshToken(Long userId) {
-		String tokenKey = TokenProperty.TOKEN_KEY_PREFIX + userId;
-		String refreshTokenKey = TokenProperty.REFRESH_TOKEN_KEY_PREFIX + userId;
+		String tokenKey = RedisKeyPrefixes.TOKEN_KEY_PREFIX + userId;
+		String refreshTokenKey = RedisKeyPrefixes.REFRESH_TOKEN_KEY_PREFIX + userId;
 
 		stringRedisTemplate.execute(deleteTokenAndRefreshTokenScript, List.of(tokenKey, refreshTokenKey));
 	}

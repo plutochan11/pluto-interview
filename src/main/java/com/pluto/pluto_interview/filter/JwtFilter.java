@@ -1,7 +1,7 @@
 package com.pluto.pluto_interview.filter;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.pluto.pluto_interview.constant.TokenProperty;
+import com.pluto.pluto_interview.constant.RedisKeyPrefixes;
 import com.pluto.pluto_interview.enums.ErrorMessage;
 import com.pluto.pluto_interview.exception.IllegalTokenException;
 import com.pluto.pluto_interview.exception.UserNotFoundException;
@@ -40,7 +40,12 @@ public class JwtFilter extends OncePerRequestFilter {
 	private final UserRepository userRepository;
 	private final CacheService cacheService;
 
-	public JwtFilter(JwtService jwtService, ObjectMapper objectMapper, UserRepository userRepository, CacheService cacheService) {
+	public JwtFilter(
+		  JwtService jwtService,
+		  ObjectMapper objectMapper,
+		  UserRepository userRepository,
+		  CacheService cacheService) {
+
 		this.jwtService = jwtService;
 		this.objectMapper = objectMapper;
 		this.userRepository = userRepository;
@@ -51,12 +56,15 @@ public class JwtFilter extends OncePerRequestFilter {
 	protected boolean shouldNotFilter(HttpServletRequest request) {
 		return pathMatcher.match("/auth/register", request.getServletPath()) ||
 			  pathMatcher.match("/auth/login", request.getServletPath()) ||
-			  pathMatcher.match("/auth/refresh-token", request.getServletPath());
+			  pathMatcher.match("/auth/refresh-token", request.getServletPath()) ||
+			  pathMatcher.match("/actuator/**", request.getServletPath());
 	}
 
 	@Override
-	protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
+	protected void doFilterInternal(HttpServletRequest request,
+	                                HttpServletResponse response,
 	                                FilterChain filterChain) throws ServletException, IOException {
+
 		if (isAuthenticated(request, response, filterChain)) return;
 
 		String jwt = getJwt(request);
@@ -77,7 +85,11 @@ public class JwtFilter extends OncePerRequestFilter {
 		filterChain.doFilter(request, response);
 	}
 
-	private void storeUserId(HttpServletRequest request, HttpServletResponse response, String jwt) throws IOException {
+	private void storeUserId(
+		  HttpServletRequest request,
+		  HttpServletResponse response,
+		  String jwt) throws IOException {
+
 		Claims claims;
 		try {
 			claims = jwtService.parse(jwt);
@@ -87,7 +99,7 @@ public class JwtFilter extends OncePerRequestFilter {
 			Long userId = claims.get("userId", Long.class);
 
 			// Validate the token
-			String key = TokenProperty.TOKEN_KEY_PREFIX + userId;
+			String key = RedisKeyPrefixes.TOKEN_KEY_PREFIX + userId;
 			String storedToken = cacheService.getString(key);
 			if (storedToken == null || !storedToken.equals(jwt)) {
 				throw new UserNotLoggedInException(ErrorMessage.NOT_LOGGED_IN.getErrorMessage());
@@ -115,7 +127,11 @@ public class JwtFilter extends OncePerRequestFilter {
 		}
 	}
 
-	private static boolean isAuthenticated(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws IOException, ServletException {
+	private static boolean isAuthenticated(
+		  HttpServletRequest request,
+		  HttpServletResponse response,
+		  FilterChain filterChain) throws IOException, ServletException {
+
 		Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 		if (authentication != null && authentication.isAuthenticated()) {
 			filterChain.doFilter(request, response);
@@ -125,6 +141,7 @@ public class JwtFilter extends OncePerRequestFilter {
 	}
 
 	private @Nullable String getJwt(HttpServletRequest request){
+
 		String authHeader = request.getHeader("Authorization");
 		if (authHeader == null || !authHeader.startsWith("Bearer ")) {
 			return null;

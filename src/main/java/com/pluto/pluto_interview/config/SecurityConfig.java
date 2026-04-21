@@ -43,13 +43,15 @@ public class SecurityConfig {
 					         .frameOptions(frame -> frame.deny())
 					         .httpStrictTransportSecurity(Customizer.withDefaults()))
 			     .authorizeHttpRequests(requests ->
-				    requests.requestMatchers(
-						"/auth/register",
-						          "/auth/login",
-						          "/auth/refresh-token")
-					      .permitAll()
-					      .dispatcherTypeMatchers(DispatcherType.ASYNC).permitAll()
-					      .anyRequest().authenticated())
+				       requests
+					         .requestMatchers(
+							     "/auth/register",
+						           "/auth/login",
+						           "/auth/refresh-token",
+						           "/actuator/**")
+					         .permitAll()
+					         .dispatcherTypeMatchers(DispatcherType.ASYNC).permitAll()
+					         .anyRequest().authenticated())
 			    .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
 			    .addFilterBefore(rateLimitingFilter, JwtFilter.class)
 			    .build();

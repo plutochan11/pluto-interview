@@ -1,4 +1,6 @@
 spring:
+    application:
+        name: pluto-interview
     datasource:
         url: ${PLUTO_INTERVIEW_DB_URL}
         username: ${POSTGRES_USERNAME}
@@ -63,3 +65,16 @@ rate-limiting:
     capacity: 100
     refill-amount: 100
     refill-period: 1m
+    
+management:
+    endpoints:
+        web:
+            exposure:
+                include:
+                    health, info, metrics, prometheus
+    endpoint:
+        health:
+            show-details: when_authorized
+    metrics:
+        tags:
+            application: ${spring.application.name}

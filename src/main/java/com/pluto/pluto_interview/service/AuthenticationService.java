@@ -1,7 +1,7 @@
 package com.pluto.pluto_interview.service;
 
 import com.pluto.pluto_interview.config.properties.JwtProperties;
-import com.pluto.pluto_interview.constant.TokenProperty;
+import com.pluto.pluto_interview.constant.RedisKeyPrefixes;
 import com.pluto.pluto_interview.event.UserCreatedEvent;
 import com.pluto.pluto_interview.event.UserLoggedInEvent;
 import com.pluto.pluto_interview.event.UserLoggedOutEvent;
@@ -45,7 +45,6 @@ public class AuthenticationService {
 	private final RedissonClient redissonClient;
 	private final IdGenerator idGenerator;
 
-	private static final String LOCK_NAME_PREFIX = "lock:auth-service:user-id:";
 	public static final String USER_ID_CLAIM_KEY = "userId";
 
 	public AuthenticationService(UserRepository userRepo, PasswordEncoder passwordEncoder, JwtService jwtService,
@@ -128,7 +127,7 @@ public class AuthenticationService {
 
 		// Acquire lock to avoid multiple logins
 //		Lock lock = new SimpleRedisLock(stringRedisTemplate);
-		RLock lock = redissonClient.getLock(LOCK_NAME_PREFIX + user.getId());
+		RLock lock = redissonClient.getLock(RedisKeyPrefixes.LOCK_NAME_PREFIX + user.getId());
 		try {
 			if (!lock.tryLock(3, TimeUnit.SECONDS)) {
 				throw new LockTimeoutException(ErrorMessage.TIMEOUT.getErrorMessage());
@@ -177,15 +176,12 @@ public class AuthenticationService {
 		// Validate the refresh token
 		Claims refreshTokenClaims = jwtService.parse(refreshToken);
 		Long userId = refreshTokenClaims.get(USER_ID_CLAIM_KEY, Long.class);
-		String key = TokenProperty.REFRESH_TOKEN_KEY_PREFIX + userId;
+		String key = RedisKeyPrefixes.REFRESH_TOKEN_KEY_PREFIX + userId;
 		String storedRefreshToken = cacheService.getString(key);
 
 		if (storedRefreshToken == null || !storedRefreshToken.equals(refreshToken)) {
 			throw new UserNotLoggedInException(ErrorMessage.NOT_LOGGED_IN.getErrorMessage());
 		}
-
-//		// Get refresh token from the cache
-//		String refreshToken = stringRedisTemplate.opsForValue().get(key);
 
 		// Create a new JWT token
 		Map<String, Object> claims = Map.of(USER_ID_CLAIM_KEY, userId);
@@ -219,7 +215,7 @@ public class AuthenticationService {
 	}
 
 	private boolean isLoggedIn(Long userId) {
-		String key = TokenProperty.TOKEN_KEY_PREFIX + userId;
+		String key = RedisKeyPrefixes.TOKEN_KEY_PREFIX + userId;
 		return cacheService.containsKey(key);
 	}
 
